@@ -20,17 +20,24 @@ type Body struct {
 
 // Event is one call a demo made to a vendor.
 type Event struct {
-	ID       uint64        `json:"id"`
-	Time     time.Time     `json:"time"`
-	Vendor   string        `json:"vendor"`
-	Source   string        `json:"source"` // "localstack" or "local": who hosts the app emulator
-	Method   string        `json:"method"`
-	Path     string        `json:"path"` // including the query string
-	Status   int           `json:"status"`
-	Duration time.Duration `json:"duration_ns"`
-	Request  Body          `json:"request"`
-	Response Body          `json:"response"`
-	Error    string        `json:"error,omitempty"` // set when the upstream could not be reached
+	ID     uint64    `json:"id"`
+	Time   time.Time `json:"time"`
+	Vendor string    `json:"vendor"`
+	Source string    `json:"source"` // "localstack" or "local": who hosts the app emulator
+	// Origin says who produced the response, and EmulatorVersion and
+	// ArtifactVersion say which build of it and which SDK or API version the
+	// call was written against. The last two are empty when not known. Together
+	// they make a recorded call comparable with the same call made elsewhere.
+	Origin          string        `json:"origin"`
+	EmulatorVersion string        `json:"emulator_version,omitempty"`
+	ArtifactVersion string        `json:"artifact_version,omitempty"`
+	Method          string        `json:"method"`
+	Path            string        `json:"path"` // including the query string
+	Status          int           `json:"status"`
+	Duration        time.Duration `json:"duration_ns"`
+	Request         Body          `json:"request"`
+	Response        Body          `json:"response"`
+	Error           string        `json:"error,omitempty"` // set when the upstream could not be reached
 }
 
 // Recorder keeps the most recent events and tells subscribers about new ones.
