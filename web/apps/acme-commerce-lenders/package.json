@@ -1,0 +1,42 @@
+{
+  "name": "@localstack-app-emulators/acme-commerce-lenders",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "generate-routes": "tsr generate",
+    "build": "tsr generate && tsc && vite build",
+    "preview": "vite preview",
+    "type-check": "tsr generate && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@localstack-app-emulators/brand": "workspace:*",
+    "@tanstack/react-query": "^5.62.8",
+    "@tanstack/react-router": "^1.91.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.469.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.1",
+    "@tanstack/router-cli": "^1.166.33",
+    "@tanstack/router-plugin": "^1.91.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^29.0.2",
+    "tailwindcss": "^4.3.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.4.3",
+    "vitest": "^4.1.11"
+  }
+}

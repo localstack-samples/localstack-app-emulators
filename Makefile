@@ -1,4 +1,4 @@
-.PHONY: build test vet check-kits kit
+.PHONY: build test vet check-kits kit web
 
 # Every module in the Go workspace is built, vetted and tested. In a workspace,
 # ./... from the root matches only the root module, so each module is listed.
@@ -20,6 +20,15 @@ test:
 # Every demo ships an offline kit.
 check-kits:
 	set -e; for a in apps/*/; do [ -d "$${a}cmd/kit" ] || { echo "$$a has no cmd/kit (every demo needs an offline kit)"; exit 1; }; done
+
+# Builds a demo's web UI and copies it into the Go binary's embedded assets.
+# Run it before `make build` to get the real UI instead of the placeholder.
+# make web APP=acme-commerce-lenders
+web:
+	pnpm --dir web install --frozen-lockfile
+	pnpm --dir web --filter @localstack-app-emulators/$(APP) build
+	find apps/$(APP)/internal/ui/assets -mindepth 1 ! -name placeholder.html -delete
+	cp -R web/apps/$(APP)/dist/. apps/$(APP)/internal/ui/assets/
 
 # make kit APP=acme-commerce-lenders ARGS=seed
 kit: build
