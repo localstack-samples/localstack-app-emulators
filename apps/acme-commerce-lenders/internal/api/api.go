@@ -117,7 +117,8 @@ func (h *handler) step(fn func(context.Context, string) (lender.Application, err
 }
 
 // events returns the vendor calls recorded after the id in ?since, so a client
-// can poll for just what is new.
+// can poll for just what is new. generation changes when a reset clears the
+// recording, and a client that sees it change drops what it holds.
 func (h *handler) events(w http.ResponseWriter, r *http.Request) {
 	var since uint64
 	if s := r.URL.Query().Get("since"); s != "" {
@@ -133,7 +134,7 @@ func (h *handler) events(w http.ResponseWriter, r *http.Request) {
 	if len(evs) > 0 {
 		last = evs[len(evs)-1].ID
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"events": evs, "last": last})
+	writeJSON(w, http.StatusOK, map[string]any{"events": evs, "last": last, "generation": h.rec.Generation()})
 }
 
 // statusFor maps an error to an HTTP status. A failure the lender could not

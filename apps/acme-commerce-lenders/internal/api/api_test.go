@@ -170,6 +170,27 @@ func TestEventsReturnOnlyWhatIsNew(t *testing.T) {
 	}
 }
 
+func TestEventsReportWhenTheRecordingWasCleared(t *testing.T) {
+	rec := wire.NewRecorder(10)
+	h := New(&fakeApps{}, &fakeAdmin{}, rec)
+	generation := func() uint64 {
+		var body struct {
+			Generation uint64 `json:"generation"`
+		}
+		json.Unmarshal(do(h, "GET", "/api/events").Body.Bytes(), &body)
+		return body.Generation
+	}
+	before := generation()
+	rec.Record(wire.Event{Path: "/a"})
+	if generation() != before {
+		t.Fatal("recording a call must not change the generation")
+	}
+	rec.Clear()
+	if generation() == before {
+		t.Fatal("clearing the recording must change the generation")
+	}
+}
+
 func TestStatusAndReset(t *testing.T) {
 	admin := &fakeAdmin{}
 	h := New(&fakeApps{}, admin, wire.NewRecorder(1))

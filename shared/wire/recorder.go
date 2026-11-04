@@ -39,6 +39,7 @@ type Recorder struct {
 	mu     sync.RWMutex
 	max    int
 	next   uint64
+	clears uint64
 	events []Event
 	subs   map[chan Event]struct{}
 }
@@ -89,11 +90,20 @@ func (r *Recorder) Since(id uint64) []Event {
 }
 
 // Clear drops every stored event. IDs keep counting, so a client that polls
-// with Since never sees an ID repeat.
+// with Since never sees an ID repeat. Generation changes, which is how that
+// client learns the events it holds are gone.
 func (r *Recorder) Clear() {
 	r.mu.Lock()
 	r.events = nil
+	r.clears++
 	r.mu.Unlock()
+}
+
+// Generation counts the times Clear has been called.
+func (r *Recorder) Generation() uint64 {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.clears
 }
 
 // Subscribe returns a channel of new events and a function that stops it.

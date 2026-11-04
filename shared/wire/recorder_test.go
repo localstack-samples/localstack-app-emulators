@@ -72,3 +72,19 @@ func TestRecorderDoesNotBlockOnSlowSubscriber(t *testing.T) {
 		t.Fatal("Record blocked on a subscriber that is not reading")
 	}
 }
+
+func TestRecorderGenerationCountsClears(t *testing.T) {
+	r := NewRecorder(10)
+	if r.Generation() != 0 {
+		t.Fatalf("a new recorder is generation 0, got %d", r.Generation())
+	}
+	r.Record(Event{})
+	if r.Generation() != 0 {
+		t.Fatal("recording must not change the generation")
+	}
+	r.Clear()
+	r.Clear()
+	if r.Generation() != 2 {
+		t.Fatalf("want generation 2 after two clears, got %d", r.Generation())
+	}
+}

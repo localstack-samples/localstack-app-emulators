@@ -1,4 +1,4 @@
-import type { Application, Facts, Status } from './types'
+import type { Application, EventsResponse, Facts, Status } from './types'
 
 /** An error answer from the demo's API. */
 export class ApiError extends Error {
@@ -29,6 +29,8 @@ const step = (name: string) => (id: string) =>
 
 export const api = {
   getStatus: () => request<Status>('GET', '/status'),
+  getEvents: (since: number) =>
+    request<EventsResponse>('GET', `/events?since=${since}`),
   reset: () => request<Facts>('POST', '/reset'),
   apply: () => request<Application>('POST', '/applications'),
   getApplication: (id: string) =>
