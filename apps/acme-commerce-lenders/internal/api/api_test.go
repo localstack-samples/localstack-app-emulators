@@ -43,6 +43,12 @@ func (f *fakeApps) Review(_ context.Context, id string) (lender.Application, err
 func (f *fakeApps) Offer(_ context.Context, id string) (lender.Application, error) {
 	return f.rec("offer", id)
 }
+func (f *fakeApps) Accept(_ context.Context, id string) (lender.Application, error) {
+	return f.rec("accept", id)
+}
+func (f *fakeApps) Fund(_ context.Context, id string) (lender.Application, error) {
+	return f.rec("fund", id)
+}
 
 type fakeAdmin struct {
 	resetErr error
@@ -82,6 +88,8 @@ func TestRoutesCallTheLenderAndReturnJSON(t *testing.T) {
 		{"POST", "/api/applications/app-0007/connect", 200, "connect app-0007"},
 		{"POST", "/api/applications/app-0007/review", 200, "review app-0007"},
 		{"POST", "/api/applications/app-0007/offer", 200, "offer app-0007"},
+		{"POST", "/api/applications/app-0007/accept", 200, "accept app-0007"},
+		{"POST", "/api/applications/app-0007/fund", 200, "fund app-0007"},
 	} {
 		rec := do(h, tc.method, tc.path)
 		if rec.Code != tc.status || !strings.HasPrefix(rec.Header().Get("Content-Type"), "application/json") {
@@ -104,6 +112,7 @@ func TestErrorsMapToTheRightStatus(t *testing.T) {
 		{lender.ErrNotFound, 404},
 		{&lender.WrongStateError{Step: "offer", Have: lender.Applied, Want: lender.Reviewed}, 409},
 		{lender.ErrNotSeeded, 409},
+		{lender.ErrDeclined, 409},
 		{errors.New("stripe GET /v1/charges: HTTP 500"), 502},
 	} {
 		rec := do(New(&fakeApps{err: tc.err}, &fakeAdmin{}, wire.NewRecorder(1)), "POST", "/api/applications/app-1/connect")
