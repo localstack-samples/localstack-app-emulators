@@ -8,7 +8,7 @@ Demos of LocalStack for SaaS Apps. It lets you build and test against the third-
 
 Status: In Development
 
-ACME Commerce Lenders is a fictional working-capital lender for ecommerce companies. A merchant applies for working capital, and the lender reads their sales from Stripe and their bank data from Plaid to make an offer. When the merchant accepts, the lender funds the advance through Stripe Connect into the bank account the merchant verified with Plaid, and the settlement appears in the merchant's Xero books. The lender's backend runs on LocalStack's AWS emulation and every third-party system is an app emulator, so the whole flow runs locally, resets in one click, and needs no vendor sandbox or real account.
+ACME Commerce Lenders is a fictional working-capital lender for ecommerce companies. A merchant applies for working capital, and the lender reads their sales from Stripe and their bank data from Plaid to make an offer. When the merchant accepts, the lender funds the advance through Stripe Connect into the bank account the merchant verified with Plaid, and the settlement appears in the merchant's Xero books. Every third-party system is an app emulator, so the whole flow runs locally, resets in one click, and needs no vendor sandbox or real account.
 
 Code and docs: [apps/acme-commerce-lenders](apps/acme-commerce-lenders)
 
@@ -23,8 +23,6 @@ A sample is an open source app, written by someone else for real users, that is 
 ## How demos run
 
 Each demo is one Go binary, `cmd/kit`, that serves the demo's UI and runs its logic. It runs beside LocalStack, which hosts the app emulators and serves each one on its own host name through LocalStack's gateway, so you start LocalStack with `lstk` first. The demo calls each vendor through a local recording proxy (`shared/wire`), which is how the inspector shows what the demo sends. Each vendor's app emulator is hosted by LocalStack or run by you (`<VENDOR>_EMULATOR_URL`), so you can build against an app emulator locally and move it to LocalStack once LocalStack includes it.
-
-Demos use no AWS services yet. Each demo's `core` package depends only on small interfaces (`Store`, `Publisher`), which is where AWS services plug in later.
 
 ## Repo layout
 
