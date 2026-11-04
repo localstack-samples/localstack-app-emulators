@@ -6,5 +6,5 @@
 # checks run only where `pnpm install` has been run in web/.
 commands:
   test: 'set -e; for m in $(go list -m); do go test -count=1 "$m/..."; done; if [ -d web/node_modules ]; then pnpm --dir web test; fi'
-  lint: 'set -e; for m in $(go list -m); do go vet "$m/..."; done; for a in apps/*/; do [ -d "${a}cmd/kit" ] || { echo "$a has no cmd/kit"; exit 1; }; done; test -z "$(gofmt -l .)" || { echo "unformatted files (run gofmt -w .):"; gofmt -l .; exit 1; }; if [ -d web/node_modules ]; then pnpm --dir web lint && pnpm --dir web type-check; fi'
+  lint: 'set -e; for m in $(go list -m); do go vet "$m/..."; done; for a in apps/*/; do [ -d "${a}cmd/kit" ] || { echo "$a has no cmd/kit"; exit 1; }; done; (cd shared && go run ./cmd/check-samples ../samples); test -z "$(gofmt -l .)" || { echo "unformatted files (run gofmt -w .):"; gofmt -l .; exit 1; }; if [ -d web/node_modules ]; then pnpm --dir web lint && pnpm --dir web type-check; fi'
   format: "gofmt -w ."
