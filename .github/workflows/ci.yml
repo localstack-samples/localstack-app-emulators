@@ -72,6 +72,11 @@ jobs:
             go build -o /dev/null "./${app}cmd/kit"
           done
 
+      # Samples are other people's apps, so this repo holds only a descriptor for
+      # each. A sample with a bad descriptor, or with app code in it, fails here.
+      - name: Check the sample descriptors
+        run: make check-samples
+
   # Each demo's UI is built with pnpm and embedded in its Go binary, so this job
   # builds the UI, builds the binary, and checks the binary serves it.
   web:
