@@ -60,9 +60,11 @@ func SeedStripe(ctx context.Context, hc *http.Client, t wire.Target) (StripeFact
 	acct := map[string]string{"Authorization": "Bearer " + StripeKey, "Stripe-Account": account.ID}
 
 	// A payout needs somewhere to go. The funding step replaces this with the
-	// bank account the merchant verified with Plaid.
+	// bank account the merchant verified with Plaid. btok_us_verified is one of
+	// Stripe's own test tokens. The Stripe app emulator refuses a token it does
+	// not know, so a made-up one will not do.
 	if err := api.Form(ctx, http.MethodPost, "/v1/accounts/"+account.ID+"/external_accounts", platform,
-		url.Values{"external_account": {"btok_us"}}, nil); err != nil {
+		url.Values{"external_account": {"btok_us_verified"}}, nil); err != nil {
 		return facts, fmt.Errorf("add the merchant's bank account: %w", err)
 	}
 
