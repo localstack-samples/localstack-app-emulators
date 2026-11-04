@@ -37,10 +37,14 @@ func New(t *testing.T, resets *atomic.Int32) *httptest.Server {
 			w.Write([]byte(`{"public_token":"pub"}`))
 		case p == "/item/public_token/exchange":
 			w.Write([]byte(`{"access_token":"tok","item_id":"item"}`))
+		case p == "/item/get":
+			w.Write([]byte(`{"item":{"institution_id":"ins_109508"}}`))
 		case p == "/accounts/get":
 			w.Write([]byte(`{"accounts":[{"account_id":"chk","subtype":"checking","mask":"0000","balances":{"current":110}}]}`))
 		case p == "/transactions/get":
 			w.Write([]byte(`{"total_transactions":2}`))
+		case p == "/api.xro/2.0/Organisation":
+			w.Write([]byte(`{"Organisations":[{"Name":"Demo Company (Global)"}]}`))
 		case p == "/api.xro/2.0/Contacts":
 			w.Write([]byte(`{"Contacts":[{"ContactID":"c0"},{"ContactID":"c1"},{"ContactID":"c2"}]}`))
 		case p == "/api.xro/2.0/Invoices":
