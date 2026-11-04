@@ -87,15 +87,30 @@ Three things to know:
 
 ### Run the demo
 
+Build the UI into the binary, then run it. This needs Node 22 (see `web/.node-version`) and pnpm, which `corepack enable` provides at the version `web/package.json` pins.
+
 ```sh
+make web APP=acme-commerce-lenders
 make kit APP=acme-commerce-lenders
 ```
 
-Open <http://127.0.0.1:8080>. The UI is not built yet, so this serves a placeholder page, and the demo does not read the `<VENDOR>_EMULATOR_URL` variables yet.
+Open <http://127.0.0.1:8080>. Without `make web` the binary serves a placeholder page, so the API still works but there is no UI.
+
+The UI and the API are served from the one binary, and the UI needs no network: its typeface and logo are bundled.
 
 ## What you see
 
-The UI is not built yet. The flow runs behind an HTTP API that the UI will call, and you can drive it yourself once the server is up (`make kit APP=acme-commerce-lenders`, on port 8080):
+The demo is two clicks and a reset.
+
+1. **Apply for working capital.** The merchant applies, and the lender connects to Stripe, Plaid and Xero, reads what they hold and prices an offer. Each step shows as it finishes, with how long it took.
+2. **Accept the offer and fund it.** The advance is paid to the merchant's bank, and the page shows the bank account, the transfer and the payout.
+3. **Reset** puts every app emulator and the demo back at the start.
+
+The top of the page shows each app emulator, who serves it (LocalStack or a process you run), and whether it is ready. If one is not, the page says what to do. Apply stays disabled until all three are ready and the world is seeded.
+
+If a step fails, the page shows the error and a Retry button that carries on from that step.
+
+The same flow runs behind an HTTP API, which you can drive yourself from a terminal:
 
 ```sh
 curl -s -X POST localhost:8080/api/reset                          # seed the world
