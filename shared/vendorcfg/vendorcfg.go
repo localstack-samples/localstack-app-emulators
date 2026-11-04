@@ -19,8 +19,15 @@ type URLs map[string]string
 
 // EnvName is the environment variable for a vendor: "stripe" gives
 // STRIPE_BASE_URL, and "logo-dev" gives LOGO_DEV_BASE_URL.
-func EnvName(vendor string) string {
-	return strings.ToUpper(strings.ReplaceAll(vendor, "-", "_")) + "_BASE_URL"
+func EnvName(vendor string) string { return envPrefix(vendor) + "_BASE_URL" }
+
+// EmulatorEnvName is the variable that says where a vendor's app emulator runs
+// when you run it yourself: "plaid" gives PLAID_EMULATOR_URL. Unset means
+// LocalStack hosts it.
+func EmulatorEnvName(vendor string) string { return envPrefix(vendor) + "_EMULATOR_URL" }
+
+func envPrefix(vendor string) string {
+	return strings.ToUpper(strings.ReplaceAll(vendor, "-", "_"))
 }
 
 // FromEnv reads the base URL of each vendor through getenv, which is

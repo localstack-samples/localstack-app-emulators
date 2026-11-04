@@ -44,3 +44,11 @@ func TestRequireRejectsEmptyAndNamesTheVariable(t *testing.T) {
 		t.Fatalf("expected the URL back, got %q, %v", v, err)
 	}
 }
+
+func TestEmulatorEnvName(t *testing.T) {
+	for vendor, want := range map[string]string{"plaid": "PLAID_EMULATOR_URL", "logo-dev": "LOGO_DEV_EMULATOR_URL"} {
+		if got := EmulatorEnvName(vendor); got != want {
+			t.Errorf("EmulatorEnvName(%q) = %q, want %q", vendor, got, want)
+		}
+	}
+}
