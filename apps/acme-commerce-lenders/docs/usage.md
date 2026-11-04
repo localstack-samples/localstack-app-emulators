@@ -55,6 +55,36 @@ export XERO_EMULATOR_URL=http://127.0.0.1:5102
 
 A vendor with no `<VENDOR>_EMULATOR_URL` set uses LocalStack. When your LocalStack includes Plaid and Xero, unset those two variables and the demo uses LocalStack for them, with no other change.
 
+### Check the app emulators
+
+```sh
+make kit APP=acme-commerce-lenders ARGS=ready
+```
+
+This lists each app emulator, who serves it (`localstack` or `local`) and whether it is healthy. If one is not, it says what to do: start LocalStack, run that app emulator yourself, or set the variable that points at it.
+
+### Seed the world
+
+```sh
+make kit APP=acme-commerce-lenders ARGS=seed
+```
+
+This builds the fictional merchant the lender makes an offer to, Harbor & Pine Outfitters, in all three app emulators. It takes a second or two.
+
+| App emulator | What the merchant has |
+|---|---|
+| Stripe | A connected account with 90 days of card sales (941 orders, $81,083.84) and 12 weekly payouts |
+| Xero | Six wholesale invoices: three paid, two inside their terms, and one overdue. $16,150.00 is outstanding and $5,400.00 of it is overdue. |
+| Plaid | A bank connection with a checking account |
+
+The world is the same every run. If an app emulator is down, or LocalStack does not include it, nothing is seeded. If the world is already seeded, the command says so and asks for a reset.
+
+Three things to know:
+
+- **The app emulators' clocks move 90 days ahead.** Stripe cannot back-date a sale, so seeding builds the history by moving the clock forward a day at a time. The history ends on the "as of" date the command prints. A reset puts the clocks back to real time.
+- **Plaid's data is thin.** The Plaid app emulator gives every bank connection the same small fixture: a few accounts, two transactions, no deposits, and a checking balance of $110.00. It does not match the Stripe payouts. Until the Plaid app emulator can be given a merchant's own history, the demo's bank data is that fixture.
+- **Funded payouts.** The Stripe app emulator does not add a connected account's sales to its balance, so seeding funds the account with each week's sales just before paying them out.
+
 ### Run the demo
 
 ```sh
@@ -69,7 +99,13 @@ Not built yet. The planned flow is two clicks: apply, then accept.
 
 ## Reset
 
-Not built yet. The plan is one click that returns every app emulator and the demo to the seeded starting state.
+```sh
+make kit APP=acme-commerce-lenders ARGS=reset
+```
+
+This wipes the app emulators and the lender's own state, then seeds the world again, so the demo is back at its starting point. It first prints each app emulator it is about to wipe and where it is served from.
+
+An app emulator served by LocalStack is shared with anything else using that LocalStack, so a reset wipes everything in it, not only this demo's data.
 
 ## Working without internet
 

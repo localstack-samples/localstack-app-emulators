@@ -21,6 +21,6 @@ test:
 check-kits:
 	set -e; for a in apps/*/; do [ -d "$${a}cmd/kit" ] || { echo "$$a has no cmd/kit (every demo needs an offline kit)"; exit 1; }; done
 
-# make kit APP=acme-commerce-lenders
+# make kit APP=acme-commerce-lenders ARGS=seed
 kit: build
-	./bin/$(APP)-kit
+	./bin/$(APP)-kit $(ARGS)
