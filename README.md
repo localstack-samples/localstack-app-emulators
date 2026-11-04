@@ -29,7 +29,7 @@ Each demo is a Go app under `apps/`. The repo is a Go workspace (`go.work`), so 
 
 ## Every demo has an offline kit
 
-Each demo ships `cmd/kit`: one binary that serves the UI, runs the demo logic and starts the app emulators itself, with no network and no LocalStack. A demo may also have a LocalStack mode (`cmd/lambda`), which adds LocalStack's AWS emulation. `make check-kits` fails a demo that has no `cmd/kit`.
+Each demo ships `cmd/kit`: one binary that serves the UI, runs the demo logic and starts the app emulators itself, with no network and no LocalStack. A demo may also have a LocalStack mode (`cmd/lambda`), which adds LocalStack's AWS emulation. `make check-kits`, CI and the no-mistakes gate fail a demo that has no `cmd/kit`.
 
 ## Working in the repo
 

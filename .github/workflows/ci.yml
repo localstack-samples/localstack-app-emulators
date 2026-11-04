@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    # Deliberately unfiltered. `branches:` on pull_request matches the
+    # PR's BASE branch, not its head, so a `[main]` filter gives a stacked
+    # PR (one based on another feature branch) zero checks. Keep the
+    # filter on push:, where it does mean what it looks like.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.work
+          # No go.sum exists yet, and the module cache has nothing to key on.
+          cache: false
+
+      # In a Go workspace, ./... only matches packages in the root module.
+      # go list -m discovers every module. set -e plus the non-empty check
+      # stop a failing `go list -m` from passing having checked nothing.
+      - name: Check formatting
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "unformatted files (run gofmt -w .):"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet all modules
+        run: |
+          set -euo pipefail
+          mods="$(go list -m)"
+          [ -n "$mods" ] || { echo "go list -m returned no modules"; exit 1; }
+          for mod in $mods; do
+            echo "Vetting $mod..."
+            go vet "$mod/..."
+          done
+
+      - name: Test all modules
+        run: |
+          set -euo pipefail
+          mods="$(go list -m)"
+          [ -n "$mods" ] || { echo "go list -m returned no modules"; exit 1; }
+          for mod in $mods; do
+            echo "Testing $mod..."
+            go test -race -count=1 "$mod/..."
+          done
+
+      # Every demo ships an offline kit, so a demo without one fails here, and
+      # every kit must build.
+      - name: Build every demo's offline kit
+        run: |
+          set -euo pipefail
+          for app in apps/*/; do
+            [ -d "${app}cmd/kit" ] || { echo "${app} has no cmd/kit (every demo needs an offline kit)"; exit 1; }
+            echo "Building ${app}cmd/kit..."
+            go build -o /dev/null "./${app}cmd/kit"
+          done
