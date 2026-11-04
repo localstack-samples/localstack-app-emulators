@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   offer: vi.fn(),
   accept: vi.fn(),
   fund: vi.fn(),
+  settle: vi.fn(),
   calls: [] as string[],
 }))
 
@@ -65,6 +66,17 @@ const approved: Offer = {
       used: false,
     },
   ],
+}
+
+const fundedFunding = {
+  amount_cents: 3000000,
+  plaid_account_id: 'chk',
+  bank_account_id: 'ba_1',
+  bank_last4: '0000',
+  routing_number: '021000021',
+  transfer_id: 'tr_advance',
+  payout_id: 'po_advance',
+  payout_status: 'pending',
 }
 
 const app = (status: Application['status'], extra: Partial<Application> = {}) =>
@@ -127,6 +139,24 @@ beforeEach(() => {
           transfer_id: 'tr_advance',
           payout_id: 'po_advance',
           payout_status: 'pending',
+        },
+      }),
+    ),
+  )
+  mocks.settle.mockImplementation(
+    track(
+      'settle',
+      app('settled', {
+        offer: approved,
+        funding: fundedFunding,
+        settlement: {
+          amount_cents: 3000000,
+          bank_transaction_id: 'bt_advance',
+          bank_account_code: '090',
+          liability_code: '810',
+          liability_name: 'Working capital advance',
+          reference: 'app-0001',
+          date: '2027-02-02',
         },
       }),
     ),
@@ -197,7 +227,7 @@ describe('DemoPage', () => {
     expect(offer).toHaveTextContent('Shown only')
   })
 
-  it('runs accept and fund on the second click and shows how the money moved', async () => {
+  it('runs accept, fund and settle on the second click and shows how the money moved', async () => {
     const user = userEvent.setup()
     renderPage()
     await user.click(
@@ -217,12 +247,48 @@ describe('DemoPage', () => {
       'offer',
       'accept',
       'fund',
+      'settle',
     ])
     expect(funding).toHaveTextContent('Checking ending 0000')
     expect(funding).toHaveTextContent('routing 021000021')
     expect(funding).toHaveTextContent('tr_advance')
     expect(funding).toHaveTextContent('po_advance')
     expect(funding).toHaveTextContent('$30,000.00')
+
+    // The books show where the advance was booked.
+    const settlement = await screen.findByTestId('settlement')
+    expect(settlement).toHaveTextContent('bank account 090')
+    expect(settlement).toHaveTextContent('Working capital advance')
+    expect(settlement).toHaveTextContent('810')
+    expect(settlement).toHaveTextContent('bt_advance')
+  })
+
+  it('retries a failed settlement without paying the advance out again', async () => {
+    mocks.settle.mockRejectedValueOnce(
+      new Error('xero PUT /BankTransactions: HTTP 500'),
+    )
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(
+      await screen.findByRole('button', { name: /apply for working capital/i }),
+    )
+    await user.click(
+      await screen.findByRole('button', {
+        name: /accept the offer and fund it/i,
+      }),
+    )
+
+    expect(
+      await screen.findByText(/xero PUT \/BankTransactions: HTTP 500/),
+    ).toBeInTheDocument()
+    // The money has moved and the page says so, and the books are still waiting.
+    expect(await screen.findByTestId('funding')).toHaveTextContent('po_advance')
+    expect(screen.queryByTestId('settlement')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /retry/i }))
+    await screen.findByTestId('settlement')
+    expect(mocks.fund).toHaveBeenCalledTimes(1)
+    expect(mocks.settle).toHaveBeenCalledTimes(2)
   })
 
   it('does not offer to accept a declined offer', async () => {

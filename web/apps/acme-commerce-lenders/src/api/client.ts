@@ -38,4 +38,5 @@ export const api = {
   offer: step('offer'),
   accept: step('accept'),
   fund: step('fund'),
+  settle: step('settle'),
 }
