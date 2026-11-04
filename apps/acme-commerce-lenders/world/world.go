@@ -73,6 +73,8 @@ type Facts struct {
 	Merchant string      `json:"merchant"`
 	AsOf     string      `json:"as_of"` // the date the history ends, YYYY-MM-DD
 	Stripe   StripeFacts `json:"stripe"`
+	Plaid    PlaidFacts  `json:"plaid"`
+	Xero     XeroFacts   `json:"xero"`
 }
 
 // StoreKey is where Facts live in the lender's Store.
