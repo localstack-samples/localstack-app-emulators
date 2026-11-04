@@ -6,15 +6,11 @@ ACME Commerce Lenders is a fictional working-capital lender for ecommerce compan
 
 This describes the planned flow. Only the scaffold is built so far.
 
-## Two run modes
+## How it runs
 
-| | Offline kit (default) | LocalStack mode |
-|---|---|---|
-| Entry point | `cmd/kit` | `cmd/lambda` |
-| Runs | One binary: the UI, the lender logic and the three app emulators | The lender logic as Lambdas on LocalStack, with the app emulators reached over the network |
-| Needs | No network and no LocalStack | LocalStack, plus a prior activation if the network is down |
+`cmd/kit` is the demo: one binary that serves the UI and runs the lender logic. It runs beside LocalStack, which hosts the Stripe, Plaid and Xero app emulators. See [Getting started](docs/usage.md#getting-started).
 
-Both modes run the same lender logic in `core/`, which depends only on small interfaces (`Store`, `Publisher`).
+No AWS services are used yet. The lender logic in `core/` depends only on small interfaces (`Store`, `Publisher`), and `cmd/lambda` is a placeholder for running that logic as Lambdas on LocalStack. Both are the hooks for adding AWS services later.
 
 ## Docs
 
