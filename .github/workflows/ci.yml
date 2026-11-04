@@ -71,3 +71,62 @@ jobs:
             echo "Building ${app}cmd/kit..."
             go build -o /dev/null "./${app}cmd/kit"
           done
+
+  # Each demo's UI is built with pnpm and embedded in its Go binary, so this job
+  # builds the UI, builds the binary, and checks the binary serves it.
+  web:
+    runs-on: ubuntu-latest
+    env:
+      APP: acme-commerce-lenders
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.node-version
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.work
+          cache: false
+
+      # The pnpm version is pinned by packageManager in web/package.json.
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          package_json_file: web/package.json
+
+      - name: Install
+        run: pnpm --dir web install --frozen-lockfile
+
+      - name: Lint and format check
+        run: pnpm --dir web lint
+
+      - name: Type-check
+        run: pnpm --dir web type-check
+
+      - name: Test
+        run: pnpm --dir web test
+
+      - name: Build the UI into the binary
+        run: make web APP="$APP"
+
+      - name: Check the binary serves the built UI
+        run: |
+          set -euo pipefail
+          go build -o "$RUNNER_TEMP/kit" "./apps/$APP/cmd/kit"
+          "$RUNNER_TEMP/kit" serve --addr 127.0.0.1:18080 --state "$RUNNER_TEMP/state.json" &
+          pid=$!
+          trap 'kill $pid' EXIT
+          for _ in $(seq 1 40); do
+            curl -sf http://127.0.0.1:18080/api/status >/dev/null && break
+            sleep 0.5
+          done
+          # The app, and a client-side route loaded directly, both get index.html.
+          curl -sf http://127.0.0.1:18080/ | grep -q '<div id="root">'
+          curl -sf http://127.0.0.1:18080/inspector | grep -q '<div id="root">'
+          # The hashed script the page names is served.
+          script="$(curl -sf http://127.0.0.1:18080/ | grep -o '/assets/index-[A-Za-z0-9_-]*\.js' | head -1)"
+          test -n "$script"
+          curl -sf -o /dev/null "http://127.0.0.1:18080$script"
+          # A missing file is a 404, not the app.
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/assets/missing.js)" = 404
