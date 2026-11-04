@@ -1,5 +1,22 @@
 {
   "name": "localstack-app-emulators-web",
+  "version": "0.0.0",
   "private": true,
-  "description": "Web UIs for the app emulator demos. Each app builds to static assets that its Go binary embeds."
+  "description": "Web UIs for the app emulator demos. Each app builds to static assets that its Go binary embeds.",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "pnpm --filter @localstack-app-emulators/acme-commerce-lenders dev",
+    "build": "pnpm -r build",
+    "type-check": "pnpm -r type-check",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "~2.4.12",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
 }

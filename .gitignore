@@ -4,6 +4,9 @@ dist/
 
 # Web workspace
 node_modules/
+.vite/
+.tanstack/
+**/routeTree.gen.ts
 
 # The web build writes the compiled UI here; only the placeholder is tracked
 apps/*/internal/ui/assets/*
