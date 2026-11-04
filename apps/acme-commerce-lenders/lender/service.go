@@ -20,6 +20,8 @@ const (
 	Connected Status = "connected" // the lender reached the merchant's three accounts
 	Reviewed  Status = "reviewed"  // the lender has read what they hold
 	Offered   Status = "offered"   // the lender has priced an offer
+	Accepted  Status = "accepted"  // the merchant accepted an approved offer
+	Funded    Status = "funded"    // the advance has been paid out to the merchant's bank
 )
 
 // Application is one merchant's request for working capital.
@@ -30,6 +32,7 @@ type Application struct {
 	Connections []Connection `json:"connections,omitempty"`
 	Signals     *Signals     `json:"signals,omitempty"`
 	Offer       *Offer       `json:"offer,omitempty"`
+	Funding     *Funding     `json:"funding,omitempty"`
 }
 
 var (
@@ -37,6 +40,8 @@ var (
 	ErrNotSeeded = errors.New("the world is not seeded; run seed or reset first")
 	// ErrNotFound means there is no such application.
 	ErrNotFound = errors.New("no such application")
+	// ErrDeclined means the lender declined, so there is nothing to accept.
+	ErrDeclined = errors.New("the offer was declined, so there is nothing to accept")
 )
 
 // WrongStateError means a step was tried out of order.
@@ -179,6 +184,16 @@ func (s *Service) Offer(ctx context.Context, id string) (Application, error) {
 	return s.step(ctx, id, "offer", Reviewed, Offered, func(_ context.Context, _ world.Facts, a *Application) error {
 		o := MakeOffer(*a.Signals)
 		a.Offer = &o
+		return nil
+	})
+}
+
+// Accept records the merchant accepting an approved offer.
+func (s *Service) Accept(ctx context.Context, id string) (Application, error) {
+	return s.step(ctx, id, "accept", Offered, Accepted, func(_ context.Context, _ world.Facts, a *Application) error {
+		if a.Offer == nil || !a.Offer.Approved {
+			return ErrDeclined
+		}
 		return nil
 	})
 }

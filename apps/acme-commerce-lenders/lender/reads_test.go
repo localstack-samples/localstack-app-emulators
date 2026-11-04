@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -37,6 +39,36 @@ type fakeVendors struct {
 	srv         *httptest.Server
 	chargeCalls atomic.Int32
 	noChecking  bool
+
+	// What funding does to the fake, in the order it happened.
+	mu          sync.Mutex
+	order       []string // "external", "transfer", "payout"
+	forms       map[string]url.Values
+	headers     map[string]http.Header
+	failPayouts int // how many payout requests to fail before one succeeds
+}
+
+func (f *fakeVendors) note(kind string, r *http.Request) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	r.ParseForm()
+	if f.forms == nil {
+		f.forms, f.headers = map[string]url.Values{}, map[string]http.Header{}
+	}
+	f.order = append(f.order, kind)
+	f.forms[kind], f.headers[kind] = r.PostForm, r.Header.Clone()
+}
+
+func (f *fakeVendors) count(kind string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := 0
+	for _, k := range f.order {
+		if k == kind {
+			n++
+		}
+	}
+	return n
 }
 
 func newFakeVendors(t *testing.T) *fakeVendors {
@@ -92,6 +124,27 @@ func newFakeVendors(t *testing.T) *fakeVendors {
 			}
 			end := min(start+100, len(charges))
 			json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": charges[start:end], "has_more": end < len(charges)})
+		case p == "/v1/accounts/acct_m/external_accounts" && r.Method == "POST":
+			f.note("external", r)
+			w.Write([]byte(`{"id":"ba_plaid","last4":"0000","routing_number":"021000021"}`))
+		case p == "/v1/transfers" && r.Method == "POST":
+			f.note("transfer", r)
+			w.Write([]byte(`{"id":"tr_advance"}`))
+		case p == "/v1/payouts" && r.Method == "POST":
+			f.note("payout", r)
+			f.mu.Lock()
+			fail := f.failPayouts > 0
+			if fail {
+				f.failPayouts--
+			}
+			f.mu.Unlock()
+			if fail {
+				http.Error(w, `{"error":{"message":"payout failed"}}`, http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte(`{"id":"po_advance","status":"pending"}`))
+		case p == "/auth/get":
+			w.Write([]byte(`{"numbers":{"ach":[{"account_id":"other","account":"999","routing":"111"},{"account_id":"chk","account":"1111222233330000","routing":"021000021"}]}}`))
 		case p == "/v1/payouts":
 			json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{{"amount": 100000}, {"amount": 250000}}})
 		case p == "/item/get":

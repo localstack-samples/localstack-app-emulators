@@ -103,6 +103,8 @@ curl -s -X POST localhost:8080/api/applications                   # the merchant
 curl -s -X POST localhost:8080/api/applications/app-0001/connect  # reach Stripe, Plaid and Xero
 curl -s -X POST localhost:8080/api/applications/app-0001/review   # read what they hold
 curl -s -X POST localhost:8080/api/applications/app-0001/offer    # price the offer
+curl -s -X POST localhost:8080/api/applications/app-0001/accept   # the merchant accepts
+curl -s -X POST localhost:8080/api/applications/app-0001/fund     # pay the advance out
 ```
 
 For the seeded merchant the offer is an advance of **$30,000** for a flat 8% fee ($2,400), so $32,400 to repay. The advance is the last 30 days of card sales ($30,423.72) rounded down to $500. Each number in the offer names the vendor call it came from.
@@ -112,11 +114,23 @@ For the seeded merchant the offer is an advance of **$30,000** for a flat 8% fee
 | `GET /api/status` | Whether each app emulator is healthy and the world is seeded |
 | `POST /api/reset` | Wipes the app emulators and seeds the world again |
 | `POST /api/applications` | Starts an application |
-| `POST /api/applications/{id}/connect`, `review`, `offer` | The steps, which must happen in that order |
+| `POST /api/applications/{id}/connect`, `review`, `offer`, `accept`, `fund` | The steps, which must happen in that order. A declined offer cannot be accepted. |
 | `GET /api/applications/{id}` | The application so far |
 | `GET /api/events?since=N` | Every vendor call made so far, newest after `N`, with request and response bodies. Credentials are masked. |
 
 Plaid's balance is shown with the offer but does not change it, because the Plaid app emulator's data is too thin to price against.
+
+### Funding
+
+Accepting an approved offer and funding it does three things in Stripe:
+
+1. Registers the bank account the merchant verified with Plaid as the merchant's payout destination. The lender reads the account's routing and account numbers from Plaid and gives them to Stripe, and keeps only the last four digits.
+2. Transfers the advance ($30,000) from the lender to the merchant's Stripe account.
+3. Pays the advance out from the merchant's Stripe balance to that bank account.
+
+Each step is saved as it finishes, and the Stripe calls carry idempotency keys. If funding stops halfway, run `fund` again: it picks up where it stopped and cannot pay twice.
+
+The Stripe app emulator does not keep a platform balance, so the lender's own side of the transfer does not show as a debit. The payout response also does not name its destination, so the bank account is shown on the application's funding record. Showing the money arrive in the merchant's Xero books is not built yet, and waits on Xero's bank transactions.
 
 ## Reset
 
