@@ -1,3 +1,6 @@
 go 1.26
 
-use ./shared
+use (
+	./apps/acme-commerce-lenders
+	./shared
+)
