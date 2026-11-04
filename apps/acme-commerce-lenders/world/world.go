@@ -71,7 +71,8 @@ func Gross(orders []Order) int64 {
 // merchant's accounts. Seeding writes it, and the lender reads it.
 type Facts struct {
 	Merchant string      `json:"merchant"`
-	AsOf     string      `json:"as_of"` // the date the history ends, YYYY-MM-DD
+	AsOf     string      `json:"as_of"`      // the date the history ends, YYYY-MM-DD
+	AsOfUnix int64       `json:"as_of_unix"` // the same moment in Unix seconds, for "the last 30 days"
 	Stripe   StripeFacts `json:"stripe"`
 	Plaid    PlaidFacts  `json:"plaid"`
 	Xero     XeroFacts   `json:"xero"`

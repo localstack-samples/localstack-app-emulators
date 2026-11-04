@@ -80,6 +80,7 @@ func Seed(ctx context.Context, hc *http.Client, tg Targets, store core.Store, on
 	asOf := time.Now().UTC().AddDate(0, 0, Days)
 	facts.Merchant = MerchantName
 	facts.AsOf = asOf.Format("2006-01-02")
+	facts.AsOfUnix = asOf.Unix()
 
 	err := seed.Run(ctx, []seed.Step{
 		{Name: "stripe: connected account, sales and payouts", Do: func(ctx context.Context) (err error) {
