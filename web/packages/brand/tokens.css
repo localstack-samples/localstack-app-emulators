@@ -1,0 +1,35 @@
+/*
+ * LocalStack brand tokens.
+ *
+ * Source: the LocalStack style guide (Notion: Areas / Marketing / Branding),
+ * page 02 Colors and page 03 Typography. Use these values only. Do not add
+ * colors to a demo that are not here.
+ */
+
+@font-face {
+  font-family: "Exo";
+  src: url("./fonts/Exo-Variable.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Solid colors, as listed in the style guide. */
+  --ls-mint: #74ffe6;
+  --ls-periwinkle: #6b7cf5;
+  --ls-purple: #4d29b4;
+  --ls-grey: #e5e5e5;
+  --ls-indigo: #39227a;
+
+  /*
+   * The dark background gradient. The style guide shows it without values, so
+   * these two stops are sampled from the style guide's cover page.
+   */
+  --ls-navy-start: #171a4c;
+  --ls-navy-end: #3a356f;
+  --ls-gradient-dark: linear-gradient(135deg, var(--ls-navy-start), var(--ls-navy-end));
+
+  /* Typeface: Exo, in Regular, Semibold, Bold and Extra Bold. */
+  --ls-font: "Exo", system-ui, -apple-system, "Segoe UI", sans-serif;
+}

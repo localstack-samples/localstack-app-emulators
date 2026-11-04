@@ -1,0 +1,7 @@
+{
+  "name": "@localstack-app-emulators/brand",
+  "private": true,
+  "version": "0.0.0",
+  "description": "LocalStack brand tokens, logos and typeface for the demo UIs.",
+  "files": ["tokens.css", "logo", "fonts"]
+}
