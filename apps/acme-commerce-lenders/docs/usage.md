@@ -160,6 +160,21 @@ Each of those checks before it creates, and the bank transaction is found by its
 
 This needs a Xero app emulator that can create accounts and bank transactions, which means one built from `WonderTwin-AI/wondertwin` after those landed. The booking needs no manual journal.
 
+### The inspector
+
+The demo's header has an **Open inspector** button, which opens <http://127.0.0.1:8080/inspector> in a second tab. Put it beside the demo to show what the lender asks Stripe, Plaid and Xero as each step runs.
+
+Each call is one row, newest first:
+
+- A sentence says what the lender was doing, such as "Moved the advance to the merchant's Stripe balance". A call the inspector has no sentence for shows its method and path.
+- Badges show the vendor, who served the app emulator (LocalStack or Local), the HTTP status and how long the call took. A call that got no answer shows **No answer**, with the reason when you open it.
+- Select a row to see the request and response bodies. Bank account numbers are masked before a call is recorded, so they never reach the page.
+- **Stripe**, **Plaid** and **Xero** filter the list.
+
+The inspector shows the calls the lender makes while the demo runs. The calls that seed the world are not part of it. **Reset** clears the list, and the inspector starts again from empty, whichever tab you reset from.
+
+The binary keeps the most recent 2,000 calls. Reading a merchant's sales is paged, so one run makes dozens of calls to Stripe.
+
 ## Reset
 
 ```sh
