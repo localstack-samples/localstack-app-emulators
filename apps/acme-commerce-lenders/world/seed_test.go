@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/localstack-samples/localstack-app-emulators/apps/acme-commerce-lenders/core"
 	"github.com/localstack-samples/localstack-app-emulators/shared/seed"
@@ -49,6 +50,12 @@ func TestSeedSeedsAllThreeAndSavesTheFacts(t *testing.T) {
 	}
 	if len(facts.AsOf) != len("2006-01-02") {
 		t.Fatalf("AsOf should be a date: %q", facts.AsOf)
+	}
+	if got := time.Unix(facts.AsOfUnix, 0).UTC().Format("2006-01-02"); got != facts.AsOf {
+		t.Fatalf("AsOfUnix (%s) and AsOf (%s) must name the same day", got, facts.AsOf)
+	}
+	if ahead := time.Until(time.Unix(facts.AsOfUnix, 0)); ahead < (Days-1)*24*time.Hour || ahead > (Days+1)*24*time.Hour {
+		t.Fatalf("the history should end about %d days from now, got %s", Days, ahead)
 	}
 }
 
