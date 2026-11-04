@@ -1,6 +1,6 @@
 import logo from '@localstack-app-emulators/brand/logo/localstack-logo-horizontal-light.svg'
-import { RotateCcw } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Eye, RotateCcw } from 'lucide-react'
+import { Button, buttonVariants } from '@/components/ui/button'
 
 export function Header({
   onReset,
@@ -23,10 +23,21 @@ export function Header({
           </p>
         </div>
       </div>
-      <Button variant="outline" onClick={onReset} disabled={busy}>
-        <RotateCcw />
-        Reset
-      </Button>
+      <div className="flex items-center gap-2">
+        <a
+          href="/inspector"
+          target="_blank"
+          rel="noreferrer"
+          className={buttonVariants({ variant: 'outline' })}
+        >
+          <Eye />
+          Open inspector
+        </a>
+        <Button variant="outline" onClick={onReset} disabled={busy}>
+          <RotateCcw />
+          Reset
+        </Button>
+      </div>
     </header>
   )
 }

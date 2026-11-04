@@ -93,3 +93,31 @@ export interface Status {
   emulators: EmulatorStatus[]
   facts?: Facts
 }
+
+export interface WireBody {
+  content: string
+  size: number
+  truncated: boolean
+}
+
+/** One call the demo made to a vendor, as the recorder kept it. */
+export interface WireEvent {
+  id: number
+  time: string
+  vendor: string
+  source: 'localstack' | 'local'
+  method: string
+  path: string
+  status: number
+  duration_ns: number
+  request: WireBody
+  response: WireBody
+  error?: string
+}
+
+export interface EventsResponse {
+  events: WireEvent[]
+  last: number
+  /** Changes when a reset clears the recording. */
+  generation: number
+}
