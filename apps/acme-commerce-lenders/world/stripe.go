@@ -12,9 +12,9 @@ import (
 	"github.com/localstack-samples/localstack-app-emulators/shared/wire"
 )
 
-// stripeKey is the lender's own Stripe secret key. The Stripe app emulator
+// StripeKey is the lender's own Stripe secret key. The Stripe app emulator
 // rejects a /v1 call that does not carry one, as Stripe does.
-const stripeKey = "sk_test_acme_lender_platform"
+const StripeKey = "sk_test_acme_lender_platform"
 
 // StripeFacts describes what was seeded into the Stripe app emulator.
 type StripeFacts struct {
@@ -44,7 +44,7 @@ func SeedStripe(ctx context.Context, hc *http.Client, t wire.Target) (StripeFact
 	var account struct {
 		ID string `json:"id"`
 	}
-	platform := map[string]string{"Authorization": "Bearer " + stripeKey}
+	platform := map[string]string{"Authorization": "Bearer " + StripeKey}
 	if err := api.Form(ctx, http.MethodPost, "/v1/accounts", platform, url.Values{
 		"type":                                   {"custom"},
 		"country":                                {"US"},
@@ -57,7 +57,7 @@ func SeedStripe(ctx context.Context, hc *http.Client, t wire.Target) (StripeFact
 	}
 	facts.AccountID = account.ID
 	// The merchant's own sales are made on its connected account.
-	acct := map[string]string{"Authorization": "Bearer " + stripeKey, "Stripe-Account": account.ID}
+	acct := map[string]string{"Authorization": "Bearer " + StripeKey, "Stripe-Account": account.ID}
 
 	// A payout needs somewhere to go. The funding step replaces this with the
 	// bank account the merchant verified with Plaid.

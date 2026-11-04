@@ -14,10 +14,20 @@ const redacted = "[redacted]"
 var sensitiveKeys = []string{
 	"secret", "client_secret", "access_token", "refresh_token", "id_token",
 	"password", "api_key", "apikey", "authorization", "public_token",
+	"account_number",
+}
+
+// keyName is the last part of a form field name: "external_account[account_number]"
+// is "account_number".
+func keyName(key string) string {
+	if i := strings.LastIndex(key, "["); i >= 0 && strings.HasSuffix(key, "]") {
+		return key[i+1 : len(key)-1]
+	}
+	return key
 }
 
 func sensitive(key string) bool {
-	k := strings.ToLower(key)
+	k := strings.ToLower(keyName(key))
 	for _, s := range sensitiveKeys {
 		if k == s || strings.HasSuffix(k, "_"+s) {
 			return true
@@ -59,7 +69,16 @@ func redact(contentType string, body []byte) []byte {
 func redactValue(v any) any {
 	switch t := v.(type) {
 	case map[string]any:
+		// Plaid names a bank account number "account", beside its "routing". A
+		// bare "account" elsewhere, such as Stripe's account id, is not secret.
+		_, hasRouting := t["routing"]
 		for k, val := range t {
+			if hasRouting && k == "account" {
+				if _, isString := val.(string); isString {
+					t[k] = redacted
+					continue
+				}
+			}
 			if sensitive(k) {
 				if _, isString := val.(string); isString {
 					t[k] = redacted

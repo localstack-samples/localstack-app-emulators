@@ -30,6 +30,12 @@
   --ls-navy-end: #3a356f;
   --ls-gradient-dark: linear-gradient(135deg, var(--ls-navy-start), var(--ls-navy-end));
 
+  /*
+   * Not in the style guide, which has no error color. Used only for failures
+   * and declines, where a state has to read as wrong at a glance.
+   */
+  --ls-danger: #ff7a8a;
+
   /* Typeface: Exo, in Regular, Semibold, Bold and Extra Bold. */
   --ls-font: "Exo", system-ui, -apple-system, "Segoe UI", sans-serif;
 }

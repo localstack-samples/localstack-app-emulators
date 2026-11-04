@@ -38,6 +38,7 @@ Each demo is a Go app under `apps/`. The repo is a Go workspace (`go.work`), so 
 ```sh
 make vet                        # go vet for every module
 make test                       # go test for every module
+make web APP=<demo>            # builds that demo's UI into its binary (needs Node 22 and pnpm)
 make build                      # builds every apps/<demo>/cmd/<name> to bin/<demo>-<name>
 make kit APP=<demo>             # builds, then runs that demo's binary
 make check-kits                 # fails if a demo has no cmd/kit

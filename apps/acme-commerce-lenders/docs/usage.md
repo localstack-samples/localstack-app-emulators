@@ -87,15 +87,65 @@ Three things to know:
 
 ### Run the demo
 
+Build the UI into the binary, then run it. This needs Node 22 (see `web/.node-version`) and pnpm, which `corepack enable` provides at the version `web/package.json` pins.
+
 ```sh
+make web APP=acme-commerce-lenders
 make kit APP=acme-commerce-lenders
 ```
 
-Open <http://127.0.0.1:8080>. The UI is not built yet, so this serves a placeholder page, and the demo does not read the `<VENDOR>_EMULATOR_URL` variables yet.
+Open <http://127.0.0.1:8080>. Without `make web` the binary serves a placeholder page, so the API still works but there is no UI.
+
+The UI and the API are served from the one binary, and the UI needs no network: its typeface and logo are bundled.
 
 ## What you see
 
-Not built yet. The planned flow is two clicks: apply, then accept.
+The demo is two clicks and a reset.
+
+1. **Apply for working capital.** The merchant applies, and the lender connects to Stripe, Plaid and Xero, reads what they hold and prices an offer. Each step shows as it finishes, with how long it took.
+2. **Accept the offer and fund it.** The advance is paid to the merchant's bank, and the page shows the bank account, the transfer and the payout.
+3. **Reset** puts every app emulator and the demo back at the start.
+
+The top of the page shows each app emulator, who serves it (LocalStack or a process you run), and whether it is ready. If one is not, the page says what to do. Apply stays disabled until all three are ready and the world is seeded.
+
+If a step fails, the page shows the error and a Retry button that carries on from that step.
+
+The same flow runs behind an HTTP API, which you can drive yourself from a terminal:
+
+```sh
+curl -s -X POST localhost:8080/api/reset                          # seed the world
+curl -s -X POST localhost:8080/api/applications                   # the merchant applies
+curl -s -X POST localhost:8080/api/applications/app-0001/connect  # reach Stripe, Plaid and Xero
+curl -s -X POST localhost:8080/api/applications/app-0001/review   # read what they hold
+curl -s -X POST localhost:8080/api/applications/app-0001/offer    # price the offer
+curl -s -X POST localhost:8080/api/applications/app-0001/accept   # the merchant accepts
+curl -s -X POST localhost:8080/api/applications/app-0001/fund     # pay the advance out
+```
+
+For the seeded merchant the offer is an advance of **$30,000** for a flat 8% fee ($2,400), so $32,400 to repay. The advance is the last 30 days of card sales ($30,423.72) rounded down to $500. Each number in the offer names the vendor call it came from.
+
+| Route | What it does |
+|---|---|
+| `GET /api/status` | Whether each app emulator is healthy and the world is seeded |
+| `POST /api/reset` | Wipes the app emulators and seeds the world again |
+| `POST /api/applications` | Starts an application |
+| `POST /api/applications/{id}/connect`, `review`, `offer`, `accept`, `fund` | The steps, which must happen in that order. A declined offer cannot be accepted. |
+| `GET /api/applications/{id}` | The application so far |
+| `GET /api/events?since=N` | Every vendor call made so far, newest after `N`, with request and response bodies. Credentials are masked. |
+
+Plaid's balance is shown with the offer but does not change it, because the Plaid app emulator's data is too thin to price against.
+
+### Funding
+
+Accepting an approved offer and funding it does three things in Stripe:
+
+1. Registers the bank account the merchant verified with Plaid as the merchant's payout destination. The lender reads the account's routing and account numbers from Plaid and gives them to Stripe, and keeps only the last four digits.
+2. Transfers the advance ($30,000) from the lender to the merchant's Stripe account.
+3. Pays the advance out from the merchant's Stripe balance to that bank account.
+
+Each step is saved as it finishes, and the Stripe calls carry idempotency keys. If funding stops halfway, run `fund` again: it picks up where it stopped and cannot pay twice.
+
+The Stripe app emulator does not keep a platform balance, so the lender's own side of the transfer does not show as a debit. The payout response also does not name its destination, so the bank account is shown on the application's funding record. Showing the money arrive in the merchant's Xero books is not built yet, and waits on Xero's bank transactions.
 
 ## Reset
 

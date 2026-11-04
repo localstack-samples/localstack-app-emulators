@@ -2,6 +2,16 @@
   "name": "@localstack-app-emulators/brand",
   "private": true,
   "version": "0.0.0",
-  "description": "LocalStack brand tokens, logos and typeface for the demo UIs.",
-  "files": ["tokens.css", "logo", "fonts"]
+  "description": "LocalStack brand tokens, logos, typeface and component variants for the demo UIs.",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    "./shadcn-theme.css": "./shadcn-theme.css",
+    "./variants/button": "./src/variants/button.ts",
+    "./variants/badge": "./src/variants/badge.ts",
+    "./logo/*": "./logo/*"
+  },
+  "files": ["tokens.css", "shadcn-theme.css", "src", "logo", "fonts"],
+  "dependencies": {
+    "class-variance-authority": "^0.7.1"
+  }
 }

@@ -3,55 +3,17 @@ package cli
 import (
 	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
-)
 
-// allVendors is one server that answers for Stripe, Plaid and Xero. Their
-// routes do not overlap, so the CLI can be pointed at it three times.
-func allVendors(t *testing.T, resets *atomic.Int32) *httptest.Server {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		p := r.URL.Path
-		if strings.HasPrefix(p, "/v1/") && !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer sk_") {
-			http.Error(w, `{"error":{"message":"You did not provide an API key."}}`, http.StatusUnauthorized)
-			return
-		}
-		switch {
-		case p == "/admin/health":
-			w.Write([]byte(`{"status":"ok"}`))
-		case p == "/admin/reset":
-			resets.Add(1)
-			w.Write([]byte(`{}`))
-		case p == "/v1/accounts":
-			w.Write([]byte(`{"id":"acct_merchant"}`))
-		case strings.HasPrefix(p, "/v1/") || strings.HasPrefix(p, "/admin/"):
-			w.Write([]byte(`{"id":"x","status":"succeeded"}`))
-		case p == "/sandbox/public_token/create":
-			w.Write([]byte(`{"public_token":"pub"}`))
-		case p == "/item/public_token/exchange":
-			w.Write([]byte(`{"access_token":"tok","item_id":"item"}`))
-		case p == "/accounts/get":
-			w.Write([]byte(`{"accounts":[{"account_id":"chk","subtype":"checking","mask":"0000","balances":{"current":110}}]}`))
-		case p == "/transactions/get":
-			w.Write([]byte(`{"total_transactions":2}`))
-		case p == "/api.xro/2.0/Contacts":
-			w.Write([]byte(`{"Contacts":[{"ContactID":"c0"},{"ContactID":"c1"},{"ContactID":"c2"}]}`))
-		case p == "/api.xro/2.0/Invoices":
-			w.Write([]byte(`{"Invoices":[{"InvoiceID":"i0"},{"InvoiceID":"i1"},{"InvoiceID":"i2"},{"InvoiceID":"i3"},{"InvoiceID":"i4"},{"InvoiceID":"i5"}]}`))
-		case p == "/api.xro/2.0/Payments":
-			w.Write([]byte(`{}`))
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return srv
-}
+	"github.com/localstack-samples/localstack-app-emulators/apps/acme-commerce-lenders/internal/fakevendors"
+	"github.com/localstack-samples/localstack-app-emulators/apps/acme-commerce-lenders/world"
+)
 
 func run(t *testing.T, env map[string]string, args ...string) (code int, out, errOut string) {
 	t.Helper()
@@ -81,7 +43,7 @@ func TestHelpPrintsUsageAndSucceeds(t *testing.T) {
 
 func TestReadySaysWhatToDoAboutAnAppEmulatorThatIsDown(t *testing.T) {
 	var resets atomic.Int32
-	up := allVendors(t, &resets)
+	up := fakevendors.New(t, &resets)
 	down := httptest.NewServer(http.NotFoundHandler())
 	downURL := down.URL
 	down.Close()
@@ -96,7 +58,7 @@ func TestReadySaysWhatToDoAboutAnAppEmulatorThatIsDown(t *testing.T) {
 
 func TestReadySucceedsWhenEverythingIsUp(t *testing.T) {
 	var resets atomic.Int32
-	code, out, _ := run(t, envFor(allVendors(t, &resets).URL), "ready")
+	code, out, _ := run(t, envFor(fakevendors.New(t, &resets).URL), "ready")
 	if code != 0 || !strings.Contains(out, "all app emulators are ready") {
 		t.Fatalf("code=%d out=%s", code, out)
 	}
@@ -104,7 +66,7 @@ func TestReadySucceedsWhenEverythingIsUp(t *testing.T) {
 
 func TestSeedThenSeedAgainAsksForAReset(t *testing.T) {
 	var resets atomic.Int32
-	env := envFor(allVendors(t, &resets).URL)
+	env := envFor(fakevendors.New(t, &resets).URL)
 	state := filepath.Join(t.TempDir(), "state.json")
 
 	var o, e bytes.Buffer
@@ -137,7 +99,7 @@ func TestSeedThenSeedAgainAsksForAReset(t *testing.T) {
 
 func TestResetNamesTheTargetsBeforeWipingThem(t *testing.T) {
 	var resets atomic.Int32
-	srv := allVendors(t, &resets)
+	srv := fakevendors.New(t, &resets)
 	_, out, _ := run(t, envFor(srv.URL), "reset")
 	for _, v := range []string{"stripe", "plaid", "xero"} {
 		if !strings.Contains(out, v+" ") || !strings.Contains(out, srv.URL) {
@@ -154,5 +116,59 @@ func TestDollars(t *testing.T) {
 		if got := dollars(cents); got != want {
 			t.Errorf("dollars(%d) = %q, want %q", cents, got, want)
 		}
+	}
+}
+
+// The server is the API and the UI together, wired to real packages.
+func TestTheServerServesTheAPIAndTheUI(t *testing.T) {
+	var resets atomic.Int32
+	env := envFor(fakevendors.New(t, &resets).URL)
+	a := &app{
+		ctx: context.Background(), getenv: func(k string) string { return env[k] },
+		targets:   world.TargetsFromEnv(func(k string) string { return env[k] }),
+		statePath: filepath.Join(t.TempDir(), "state.json"),
+	}
+	h, err := a.handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	get := func(method, path string) (int, string) {
+		req, _ := http.NewRequest(method, srv.URL+path, nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+
+	if code, body := get("GET", "/"); code != 200 || !strings.Contains(body, "ACME Commerce Lenders") {
+		t.Fatalf("the UI is served at /: %d %s", code, body)
+	}
+	if code, body := get("GET", "/api/status"); code != 200 || !strings.Contains(body, `"seeded":false`) {
+		t.Fatalf("status before seeding: %d %s", code, body)
+	}
+	if code, body := get("POST", "/api/applications"); code != 409 || !strings.Contains(body, "not seeded") {
+		t.Fatalf("an application needs a seeded world: %d %s", code, body)
+	}
+	if code, body := get("POST", "/api/reset"); code != 200 || !strings.Contains(body, "Harbor") {
+		t.Fatalf("reset seeds the world: %d %s", code, body)
+	}
+	if code, body := get("GET", "/api/status"); code != 200 || !strings.Contains(body, `"ready":true`) {
+		t.Fatalf("status after the reset: %d %s", code, body)
+	}
+	code, body := get("POST", "/api/applications")
+	if code != 201 || !strings.Contains(body, "app-0001") {
+		t.Fatalf("apply: %d %s", code, body)
+	}
+	if code, body := get("POST", "/api/applications/app-0001/connect"); code != 200 || !strings.Contains(body, `"status":"connected"`) {
+		t.Fatalf("connect: %d %s", code, body)
+	}
+	if code, body := get("GET", "/api/events"); code != 200 || !strings.Contains(body, `"vendor":"stripe"`) {
+		t.Fatalf("the connect calls should be recorded as events: %d %s", code, body)
 	}
 }

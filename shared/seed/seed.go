@@ -34,13 +34,16 @@ type Status struct {
 	URL    string `json:"url"`
 	State  State  `json:"state"`
 	Detail string `json:"detail,omitempty"`
+	// Hint says what to do about a status that is not OK, in a sentence a
+	// presenter can act on.
+	Hint string `json:"hint,omitempty"`
 }
 
 // OK reports whether the app emulator is ready.
 func (s Status) OK() bool { return s.State == Healthy }
 
-// Hint says what to do about a status that is not OK.
-func (s Status) Hint() string {
+// hint says what to do about a status that is not OK.
+func (s Status) hint() string {
 	switch s.State {
 	case NotIncluded:
 		return fmt.Sprintf("this LocalStack release does not include %s. Run it yourself and set %s.", s.Vendor, vendorcfg.EmulatorEnvName(s.Vendor))
@@ -88,6 +91,7 @@ func ready(ctx context.Context, hc *http.Client, t wire.Target) Status {
 	default:
 		st.State, st.Detail = Unreachable, err.Error()
 	}
+	st.Hint = st.hint()
 	return st
 }
 

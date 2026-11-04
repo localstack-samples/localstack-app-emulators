@@ -1,0 +1,42 @@
+/*
+ * The shadcn variable names, set from the LocalStack tokens in tokens.css, so
+ * components written against shadcn's names pick up the brand. The demos run
+ * on a dark background, so this is the only theme.
+ *
+ * Mint is the action color. Periwinkle and purple are for indicators and
+ * secondary emphasis, never for the main button.
+ */
+:root {
+  --radius: 0.75rem;
+
+  --background: var(--ls-navy-start);
+  --foreground: var(--ls-grey);
+
+  --card: color-mix(in oklab, white 6%, transparent);
+  --card-foreground: var(--ls-grey);
+  --popover: var(--ls-indigo);
+  --popover-foreground: var(--ls-grey);
+
+  --primary: var(--ls-mint);
+  --primary-foreground: var(--ls-indigo);
+
+  --secondary: color-mix(in oklab, white 10%, transparent);
+  --secondary-foreground: var(--ls-grey);
+
+  --muted: color-mix(in oklab, white 8%, transparent);
+  --muted-foreground: color-mix(
+    in oklab,
+    var(--ls-grey) 68%,
+    var(--ls-navy-start)
+  );
+
+  --accent: var(--ls-periwinkle);
+  --accent-foreground: white;
+
+  --destructive: var(--ls-danger);
+  --destructive-foreground: var(--ls-navy-start);
+
+  --border: color-mix(in oklab, white 14%, transparent);
+  --input: color-mix(in oklab, white 18%, transparent);
+  --ring: var(--ls-mint);
+}
