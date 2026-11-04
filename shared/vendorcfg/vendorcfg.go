@@ -26,6 +26,12 @@ func EnvName(vendor string) string { return envPrefix(vendor) + "_BASE_URL" }
 // LocalStack hosts it.
 func EmulatorEnvName(vendor string) string { return envPrefix(vendor) + "_EMULATOR_URL" }
 
+// EmulatorVersionEnvName is the variable that names the release of a vendor's
+// app emulator, such as the id from its WonderTwin-AI/registry release:
+// "plaid" gives PLAID_EMULATOR_VERSION. An app emulator does not announce its
+// release, so whoever installed it supplies it. Unset means unknown.
+func EmulatorVersionEnvName(vendor string) string { return envPrefix(vendor) + "_EMULATOR_VERSION" }
+
 func envPrefix(vendor string) string {
 	return strings.ToUpper(strings.ReplaceAll(vendor, "-", "_"))
 }

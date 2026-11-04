@@ -222,3 +222,64 @@ func TestEventsSayWhoHostsTheAppEmulator(t *testing.T) {
 		t.Fatalf("Source = %q, want %q", got, SourceLocal)
 	}
 }
+
+// A recorded call says who produced the response and which version of it, so
+// the same call made against the vendor can be compared with it later.
+func TestEventsCarryOriginAndVersions(t *testing.T) {
+	up, _ := upstream(t, func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("{}")) })
+
+	t.Run("an app emulator by default, with no version known", func(t *testing.T) {
+		rec := NewRecorder(10)
+		px := httptest.NewServer(NewProxy(Direct("xero", up.URL), rec))
+		defer px.Close()
+		http.Get(px.URL + "/x")
+		ev := rec.Events()[0]
+		if ev.Origin != OriginEmulator || ev.EmulatorVersion != "" || ev.ArtifactVersion != "" {
+			t.Fatalf("unexpected provenance: %+v", ev)
+		}
+	})
+
+	t.Run("what the target says", func(t *testing.T) {
+		rec := NewRecorder(10)
+		tg := Direct("xero", up.URL)
+		tg.Origin, tg.EmulatorVersion, tg.ArtifactVersion = OriginVendor, "0123456789ab", "2.0"
+		px := httptest.NewServer(NewProxy(tg, rec))
+		defer px.Close()
+		http.Get(px.URL + "/x")
+		ev := rec.Events()[0]
+		if ev.Origin != OriginVendor || ev.EmulatorVersion != "0123456789ab" || ev.ArtifactVersion != "2.0" {
+			t.Fatalf("unexpected provenance: %+v", ev)
+		}
+	})
+
+	t.Run("a call that could not be made still says where it was going", func(t *testing.T) {
+		rec := NewRecorder(10)
+		tg := Direct("xero", "http://127.0.0.1:1") // nothing listens here
+		tg.EmulatorVersion = "0123456789ab"
+		px := httptest.NewServer(NewProxy(tg, rec))
+		defer px.Close()
+		http.Get(px.URL + "/x")
+		ev := rec.Events()[0]
+		if ev.Error == "" || ev.Origin != OriginEmulator || ev.EmulatorVersion != "0123456789ab" {
+			t.Fatalf("a failed call lost its provenance: %+v", ev)
+		}
+	})
+}
+
+func TestTargetFromEnvReadsTheEmulatorVersion(t *testing.T) {
+	env := map[string]string{
+		"PLAID_EMULATOR_URL":      "http://127.0.0.1:5101",
+		"PLAID_EMULATOR_VERSION":  "aaaaaaaaaaaa",
+		"STRIPE_EMULATOR_VERSION": "bbbbbbbbbbbb",
+	}
+	get := func(k string) string { return env[k] }
+	if got := TargetFromEnv(get, "plaid"); got.EmulatorVersion != "aaaaaaaaaaaa" {
+		t.Fatalf("a local app emulator: %+v", got)
+	}
+	if got := TargetFromEnv(get, "stripe"); got.EmulatorVersion != "bbbbbbbbbbbb" || got.Source != SourceLocalStack {
+		t.Fatalf("one hosted by LocalStack: %+v", got)
+	}
+	if got := TargetFromEnv(get, "xero"); got.EmulatorVersion != "" {
+		t.Fatalf("an unset version is unknown, not guessed: %+v", got)
+	}
+}

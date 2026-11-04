@@ -32,12 +32,31 @@ const (
 	SourceLocal      = "local"      // you run it yourself, such as a binary built from WonderTwin-AI/wondertwin
 )
 
+// Who produced a response. These values are provisional: they name the two
+// producers a comparison needs, and may be renamed before anything stores them.
+const (
+	OriginEmulator = "emulator" // an app emulator, wherever it runs
+	OriginVendor   = "vendor"   // the vendor's own service or sandbox
+)
+
 // Target is where one vendor's calls go.
 type Target struct {
 	Vendor   string // lane name in the inspector, such as "stripe"
 	Source   string // SourceLocalStack or SourceLocal
 	Upstream string // base URL dialled, such as http://127.0.0.1:4566
 	Host     string // Host header sent upstream; empty keeps the proxy's own
+
+	Origin          string // OriginEmulator or OriginVendor; empty means OriginEmulator
+	EmulatorVersion string // release id of the app emulator, if known
+	ArtifactVersion string // SDK or API version the calls were written against, if known
+}
+
+// origin is Origin, with the default filled in.
+func (t Target) origin() string {
+	if t.Origin == "" {
+		return OriginEmulator
+	}
+	return t.Origin
 }
 
 // LocalStack is the Target for an app emulator served by LocalStack's gateway
@@ -64,10 +83,12 @@ func Direct(vendor, baseURL string) Target {
 // LocalStack includes them, and then unsetting one variable switches each one,
 // with no code change.
 func TargetFromEnv(getenv func(string) string, vendor string) Target {
+	t := LocalStack(vendor)
 	if u := getenv(vendorcfg.EmulatorEnvName(vendor)); u != "" {
-		return Direct(vendor, u)
+		t = Direct(vendor, u)
 	}
-	return LocalStack(vendor)
+	t.EmulatorVersion = getenv(vendorcfg.EmulatorVersionEnvName(vendor))
+	return t
 }
 
 // Proxy forwards each request to a Target and records it. The whole request
@@ -93,7 +114,16 @@ func NewProxy(t Target, rec *Recorder) *Proxy {
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
-	ev := Event{Time: start, Vendor: p.target.Vendor, Source: p.target.Source, Method: r.Method, Path: r.URL.RequestURI()}
+	ev := Event{
+		Time:            start,
+		Vendor:          p.target.Vendor,
+		Source:          p.target.Source,
+		Origin:          p.target.origin(),
+		EmulatorVersion: p.target.EmulatorVersion,
+		ArtifactVersion: p.target.ArtifactVersion,
+		Method:          r.Method,
+		Path:            r.URL.RequestURI(),
+	}
 
 	reqBody, err := io.ReadAll(r.Body)
 	if err != nil {
