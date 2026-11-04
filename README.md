@@ -24,6 +24,7 @@ Each demo is a Go app under `apps/`. The repo is a Go workspace (`go.work`), so 
 |---|---|
 | `apps/<demo>/` | One demo: its Go code, its docs and its embedded UI |
 | `shared/` | Code every demo uses: starting app emulators and waiting for them to be healthy, and vendor base URL config |
+| `web/` | pnpm workspace for the demo UIs, built as static assets that the Go binaries embed |
 | `templates/demo-docs/` | The three docs every demo carries: Usage Guide, Demo Scenarios, Troubleshooting Guide |
 
 ## Every demo has an offline kit
