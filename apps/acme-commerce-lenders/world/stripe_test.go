@@ -26,6 +26,7 @@ type fakeStripe struct {
 	funded   []int64
 	payouts  []int64
 	advances int
+	resets   int
 	log      []string // "fund" and "payout" in the order they happened
 }
 
@@ -66,6 +67,11 @@ func newFakeStripe(t *testing.T) *fakeStripe {
 			w.Write([]byte(`{"id":"po_x","status":"pending"}`))
 		case r.URL.Path == "/admin/time/advance":
 			f.advances++
+			w.Write([]byte(`{}`))
+		case r.URL.Path == "/admin/health":
+			w.Write([]byte(`{"status":"ok"}`))
+		case r.URL.Path == "/admin/reset":
+			f.resets++
 			w.Write([]byte(`{}`))
 		default:
 			http.NotFound(w, r)
