@@ -52,3 +52,12 @@ func TestEmulatorEnvName(t *testing.T) {
 		}
 	}
 }
+
+func TestEmulatorVersionEnvName(t *testing.T) {
+	if got := EmulatorVersionEnvName("plaid"); got != "PLAID_EMULATOR_VERSION" {
+		t.Fatalf("got %q", got)
+	}
+	if got := EmulatorVersionEnvName("logo-dev"); got != "LOGO_DEV_EMULATOR_VERSION" {
+		t.Fatalf("got %q", got)
+	}
+}
