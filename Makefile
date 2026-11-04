@@ -1,4 +1,4 @@
-.PHONY: build test vet check-kits kit web
+.PHONY: build test vet check-kits check-samples kit web
 
 # Every module in the Go workspace is built, vetted and tested. In a workspace,
 # ./... from the root matches only the root module, so each module is listed.
@@ -20,6 +20,10 @@ test:
 # Every demo ships an offline kit.
 check-kits:
 	set -e; for a in apps/*/; do [ -d "$${a}cmd/kit" ] || { echo "$$a has no cmd/kit (every demo needs an offline kit)"; exit 1; }; done
+
+# Every sample app's descriptor is well formed, and no sample holds app code.
+check-samples:
+	cd shared && go run ./cmd/check-samples ../samples
 
 # Builds a demo's web UI and copies it into the Go binary's embedded assets.
 # Run it before `make build` to get the real UI instead of the placeholder.
