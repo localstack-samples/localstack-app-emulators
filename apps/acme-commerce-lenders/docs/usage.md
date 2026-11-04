@@ -55,6 +55,16 @@ export XERO_EMULATOR_URL=http://127.0.0.1:5102
 
 A vendor with no `<VENDOR>_EMULATOR_URL` set uses LocalStack. When your LocalStack includes Plaid and Xero, unset those two variables and the demo uses LocalStack for them, with no other change.
 
+### What each recorded call carries
+
+Beside the vendor, method, path and bodies, each call the inspector shows records where the response came from, so a call can later be compared with the same call made elsewhere:
+
+- **`origin`** is who produced the response: `emulator` for every call the demo makes today. `vendor` is reserved for a comparison run against a vendor's own sandbox. These two values are provisional.
+- **`emulator_version`** is the release id of the app emulator, such as `0123456789ab`. An app emulator does not announce its release, because the id is derived from the built binaries. Set `<VENDOR>_EMULATOR_VERSION` (for example `PLAID_EMULATOR_VERSION`) to the id of the release you installed, which is in its tag, `twin-<name>-v<id>`. Unset means unknown, and the field is left out.
+- **`artifact_version`** is the SDK or API version the calls were written against. The demo calls the vendors over plain HTTP and sets none, so it is left out.
+
+You can read them at `GET /api/events`.
+
 ### Check the app emulators
 
 ```sh
