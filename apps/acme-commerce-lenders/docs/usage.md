@@ -95,7 +95,28 @@ Open <http://127.0.0.1:8080>. The UI is not built yet, so this serves a placehol
 
 ## What you see
 
-Not built yet. The planned flow is two clicks: apply, then accept.
+The UI is not built yet. The flow runs behind an HTTP API that the UI will call, and you can drive it yourself once the server is up (`make kit APP=acme-commerce-lenders`, on port 8080):
+
+```sh
+curl -s -X POST localhost:8080/api/reset                          # seed the world
+curl -s -X POST localhost:8080/api/applications                   # the merchant applies
+curl -s -X POST localhost:8080/api/applications/app-0001/connect  # reach Stripe, Plaid and Xero
+curl -s -X POST localhost:8080/api/applications/app-0001/review   # read what they hold
+curl -s -X POST localhost:8080/api/applications/app-0001/offer    # price the offer
+```
+
+For the seeded merchant the offer is an advance of **$30,000** for a flat 8% fee ($2,400), so $32,400 to repay. The advance is the last 30 days of card sales ($30,423.72) rounded down to $500. Each number in the offer names the vendor call it came from.
+
+| Route | What it does |
+|---|---|
+| `GET /api/status` | Whether each app emulator is healthy and the world is seeded |
+| `POST /api/reset` | Wipes the app emulators and seeds the world again |
+| `POST /api/applications` | Starts an application |
+| `POST /api/applications/{id}/connect`, `review`, `offer` | The steps, which must happen in that order |
+| `GET /api/applications/{id}` | The application so far |
+| `GET /api/events?since=N` | Every vendor call made so far, newest after `N`, with request and response bodies. Credentials are masked. |
+
+Plaid's balance is shown with the offer but does not change it, because the Plaid app emulator's data is too thin to price against.
 
 ## Reset
 
