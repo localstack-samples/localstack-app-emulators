@@ -15,9 +15,12 @@ import (
 	"time"
 
 	"github.com/localstack-samples/localstack-app-emulators/apps/acme-commerce-lenders/core"
+	"github.com/localstack-samples/localstack-app-emulators/apps/acme-commerce-lenders/internal/api"
 	"github.com/localstack-samples/localstack-app-emulators/apps/acme-commerce-lenders/internal/ui"
+	"github.com/localstack-samples/localstack-app-emulators/apps/acme-commerce-lenders/lender"
 	"github.com/localstack-samples/localstack-app-emulators/apps/acme-commerce-lenders/world"
 	"github.com/localstack-samples/localstack-app-emulators/shared/seed"
+	"github.com/localstack-samples/localstack-app-emulators/shared/wire"
 )
 
 const usage = `Usage: acme-commerce-lenders [command] [flags]
@@ -89,8 +92,28 @@ func (a *app) httpClient() *http.Client { return &http.Client{Timeout: 90 * time
 
 func (a *app) store() (core.Store, error) { return core.NewFileStore(a.statePath) }
 
+// handler is the whole demo over HTTP: the API under /api/ and the UI at /.
+func (a *app) handler() (http.Handler, error) {
+	store, err := a.store()
+	if err != nil {
+		return nil, err
+	}
+	rec := wire.NewRecorder(2000)
+	svc := &lender.Service{Vendors: lender.NewVendors(rec, a.targets), Store: store}
+	admin := api.WorldAdmin{Targets: a.targets, HC: a.httpClient(), Store: store, Rec: rec}
+	mux := http.NewServeMux()
+	mux.Handle("/api/", api.New(svc, admin, rec))
+	mux.Handle("/", ui.Handler())
+	return mux, nil
+}
+
 func (a *app) serve(addr string) error {
-	srv := &http.Server{Addr: addr, Handler: ui.Handler(), ReadHeaderTimeout: 5 * time.Second}
+	h, err := a.handler()
+	if err != nil {
+		return err
+	}
+	srv := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 5 * time.Second}
+	a.printTargets("Calling:")
 	fmt.Fprintf(a.out, "ACME Commerce Lenders on http://%s\n", addr)
 	return srv.ListenAndServe()
 }

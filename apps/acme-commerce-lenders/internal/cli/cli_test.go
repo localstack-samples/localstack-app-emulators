@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/localstack-samples/localstack-app-emulators/apps/acme-commerce-lenders/internal/fakevendors"
+	"github.com/localstack-samples/localstack-app-emulators/apps/acme-commerce-lenders/world"
 )
 
 func run(t *testing.T, env map[string]string, args ...string) (code int, out, errOut string) {
@@ -114,5 +116,59 @@ func TestDollars(t *testing.T) {
 		if got := dollars(cents); got != want {
 			t.Errorf("dollars(%d) = %q, want %q", cents, got, want)
 		}
+	}
+}
+
+// The server is the API and the UI together, wired to real packages.
+func TestTheServerServesTheAPIAndTheUI(t *testing.T) {
+	var resets atomic.Int32
+	env := envFor(fakevendors.New(t, &resets).URL)
+	a := &app{
+		ctx: context.Background(), getenv: func(k string) string { return env[k] },
+		targets:   world.TargetsFromEnv(func(k string) string { return env[k] }),
+		statePath: filepath.Join(t.TempDir(), "state.json"),
+	}
+	h, err := a.handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+
+	get := func(method, path string) (int, string) {
+		req, _ := http.NewRequest(method, srv.URL+path, nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+
+	if code, body := get("GET", "/"); code != 200 || !strings.Contains(body, "ACME Commerce Lenders") {
+		t.Fatalf("the UI is served at /: %d %s", code, body)
+	}
+	if code, body := get("GET", "/api/status"); code != 200 || !strings.Contains(body, `"seeded":false`) {
+		t.Fatalf("status before seeding: %d %s", code, body)
+	}
+	if code, body := get("POST", "/api/applications"); code != 409 || !strings.Contains(body, "not seeded") {
+		t.Fatalf("an application needs a seeded world: %d %s", code, body)
+	}
+	if code, body := get("POST", "/api/reset"); code != 200 || !strings.Contains(body, "Harbor") {
+		t.Fatalf("reset seeds the world: %d %s", code, body)
+	}
+	if code, body := get("GET", "/api/status"); code != 200 || !strings.Contains(body, `"ready":true`) {
+		t.Fatalf("status after the reset: %d %s", code, body)
+	}
+	code, body := get("POST", "/api/applications")
+	if code != 201 || !strings.Contains(body, "app-0001") {
+		t.Fatalf("apply: %d %s", code, body)
+	}
+	if code, body := get("POST", "/api/applications/app-0001/connect"); code != 200 || !strings.Contains(body, `"status":"connected"`) {
+		t.Fatalf("connect: %d %s", code, body)
+	}
+	if code, body := get("GET", "/api/events"); code != 200 || !strings.Contains(body, `"vendor":"stripe"`) {
+		t.Fatalf("the connect calls should be recorded as events: %d %s", code, body)
 	}
 }
