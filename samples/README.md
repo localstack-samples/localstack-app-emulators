@@ -46,3 +46,36 @@ This is an illustration, not a real sample.
 ```sh
 make check-samples
 ```
+
+## Recording a run
+
+Two commands in `shared/` record what an app asks of the app emulators and report what they do not cover.
+
+**1. Record.** `wire-proxy` listens on one port per vendor and forwards to that vendor's app emulator, the one at `<VENDOR>_EMULATOR_URL` if set, otherwise the one LocalStack serves. Point the app's vendor base URL at the listening address, using the `overrides` in `sample.json`:
+
+```sh
+cd shared
+STRIPE_EMULATOR_VERSION=<release id> go run ./cmd/wire-proxy \
+  --proxy stripe=127.0.0.1:5301 --proxy plaid=127.0.0.1:5302 \
+  --events 127.0.0.1:5399 --out ../samples/<name>/results/<date>-calls.json
+```
+
+Run the app or its tests, then stop the proxy with Ctrl-C. It writes every call to `--out`, with credentials in bodies masked. While it runs, `curl http://127.0.0.1:5399/events` shows the calls so far. Each call records its `origin` and, if you set `<VENDOR>_EMULATOR_VERSION`, the app emulator's release id. An app emulator does not announce its release, so the id is the one in the release's tag, `twin-<name>-v<id>`.
+
+**2. Report.** `gap-report` checks each call against the app emulators' manifests, which are `twin-<name>/twin-manifest.json` in `WonderTwin-AI/wondertwin`:
+
+```sh
+cd shared
+go run ./cmd/gap-report --events ../samples/<name>/results/<date>-calls.json \
+  --manifest stripe=<path>/twin-stripe/twin-manifest.json \
+  --manifest plaid=<path>/twin-plaid/twin-manifest.json
+```
+
+It lists each distinct call, with identifiers in the path replaced by `{}`, as `covered`, `gap` or `unchecked`, and which app emulator release it ran against. `--json` prints the same as JSON. `--fail-on-gap` exits 1 if any call is a gap.
+
+### What the report can and cannot tell you
+
+- **It reads the manifest, not the response.** Stripe's app emulator answers a route it lacks with a 404 that copies the real Stripe, so a status cannot say whether a route is missing.
+- **The manifests do not share a format, so precision differs.** Xero lists routes (`PUT /api.xro/2.0/Accounts`), so a covered call is exact. Plaid lists paths (`item/get`), so it cannot tell methods apart. Stripe lists resource names (`payment_intents`), so `covered` means only that some of that resource is implemented. The `BASIS` column says which applies.
+- **Identifiers are recognised by their shape.** A segment with a digit or a capital that looks like an id (`acct_3Bs...`, a GUID, a long token) becomes `{}`. An unusual identifier could be reported as its own call.
+- **A vendor with no manifest is `unchecked`, never a gap.**
