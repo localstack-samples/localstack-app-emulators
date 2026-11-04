@@ -1,6 +1,6 @@
-# localstack-app-emulators
+# LocalStack for SaaS Apps
 
-Demos of LocalStack app emulators. An app emulator is a local stand-in for a third-party API such as Stripe, Plaid or Xero, so you can build and test against it without a vendor sandbox or a real account.
+Demos of LocalStack for SaaS Apps. It lets you build and test against the third-party APIs your application depends on, such as Stripe, Plaid and Xero, using app emulators that run locally. An app emulator is a local stand-in for a third-party API, so you need no vendor sandbox and no real account.
 
 ## Demos
 
@@ -16,6 +16,12 @@ Code and docs: [apps/acme-commerce-lenders](apps/acme-commerce-lenders)
 
 **Apply, offer, accept and settle.** A merchant applies for working capital and receives an offer. They accept it, the advance is funded, and the settlement appears in their Xero books.
 
+## How demos run
+
+Each demo is one Go binary, `cmd/kit`, that serves the demo's UI and runs its logic. It runs beside LocalStack, which hosts the app emulators and serves each one on its own host name through LocalStack's gateway, so you start LocalStack with `lstk` first. The demo calls each vendor through a local recording proxy (`shared/wire`), which is how the inspector shows what the demo sends. Each vendor's app emulator is hosted by LocalStack or run by you (`<VENDOR>_EMULATOR_URL`), so you can build against an app emulator locally and move it to LocalStack once LocalStack includes it.
+
+Demos use no AWS services yet. Each demo's `core` package depends only on small interfaces (`Store`, `Publisher`), which is where AWS services plug in later.
+
 ## Repo layout
 
 Each demo is a Go app under `apps/`. The repo is a Go workspace (`go.work`), so every app and the shared module build together. Adding a demo adds a directory under `apps/` and one line to `go.work`.
@@ -23,13 +29,9 @@ Each demo is a Go app under `apps/`. The repo is a Go workspace (`go.work`), so 
 | Path | What it holds |
 |---|---|
 | `apps/<demo>/` | One demo: its Go code, its docs and its embedded UI |
-| `shared/` | Code every demo uses: starting app emulators and waiting for them to be healthy, and vendor base URL config |
+| `shared/` | Code every demo uses: the recording proxy for vendor calls, vendor base URL config, and a launcher for running app emulators without LocalStack |
 | `web/` | pnpm workspace for the demo UIs, built as static assets that the Go binaries embed |
 | `templates/demo-docs/` | The three docs every demo carries: Usage Guide, Demo Scenarios, Troubleshooting Guide |
-
-## Every demo has an offline kit
-
-Each demo ships `cmd/kit`: one binary that serves the UI, runs the demo logic and starts the app emulators itself, with no network and no LocalStack. A demo may also have a LocalStack mode (`cmd/lambda`), which adds LocalStack's AWS emulation. `make check-kits`, CI and the no-mistakes gate fail a demo that has no `cmd/kit`.
 
 ## Working in the repo
 
@@ -37,6 +39,8 @@ Each demo ships `cmd/kit`: one binary that serves the UI, runs the demo logic an
 make vet                        # go vet for every module
 make test                       # go test for every module
 make build                      # builds every apps/<demo>/cmd/<name> to bin/<demo>-<name>
-make kit APP=<demo>             # builds, then runs that demo's offline kit
+make kit APP=<demo>             # builds, then runs that demo's binary
 make check-kits                 # fails if a demo has no cmd/kit
 ```
+
+`go test -tags live ./wire` in `shared/` also runs a check against a LocalStack you have running.
