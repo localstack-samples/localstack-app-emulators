@@ -1,0 +1,6 @@
+# Build output
+bin/
+
+# Local state
+*.db
+.env
