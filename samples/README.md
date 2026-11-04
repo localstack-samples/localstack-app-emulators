@@ -75,7 +75,7 @@ It lists each distinct call, with identifiers in the path replaced by `{}`, as `
 
 ### What the report can and cannot tell you
 
-- **It reads the manifest, not the response.** Stripe's app emulator answers a route it lacks with a 404 that copies the real Stripe, so a status cannot say whether a route is missing.
+- **It reads the manifest, not the response.** An open source app emulator answers a route it lacks the way the real vendor answers an unknown URL (Stripe's returns `404 Unrecognized request URL`). That is by design, so the app sees what it would see from the vendor. A status therefore cannot say whether a route is missing, and the manifest is the record of what is emulated. A commercial app emulator can say more about the surface it does not emulate yet.
 - **The manifests do not share a format, so precision differs.** Xero lists routes (`PUT /api.xro/2.0/Accounts`), so a covered call is exact. Plaid lists paths (`item/get`), so it cannot tell methods apart. Stripe lists resource names (`payment_intents`), so `covered` means only that some of that resource is implemented. The `BASIS` column says which applies.
 - **Identifiers are recognised by their shape.** A segment with a digit or a capital that looks like an id (`acct_3Bs...`, a GUID, a long token) becomes `{}`. An unusual identifier could be reported as its own call.
 - **A vendor with no manifest is `unchecked`, never a gap.**
