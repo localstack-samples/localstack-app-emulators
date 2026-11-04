@@ -90,9 +90,10 @@ export function DemoPage() {
         </Card>
       )}
 
-      {app?.status === 'funded' && app.funding && (
-        <FundingCard funding={app.funding} />
-      )}
+      {app?.funding &&
+        (app.status === 'funded' || app.status === 'settled') && (
+          <FundingCard funding={app.funding} settlement={app.settlement} />
+        )}
     </div>
   )
 }

@@ -22,6 +22,7 @@ const (
 	Offered   Status = "offered"   // the lender has priced an offer
 	Accepted  Status = "accepted"  // the merchant accepted an approved offer
 	Funded    Status = "funded"    // the advance has been paid out to the merchant's bank
+	Settled   Status = "settled"   // the advance is recorded in the merchant's books
 )
 
 // Application is one merchant's request for working capital.
@@ -33,6 +34,7 @@ type Application struct {
 	Signals     *Signals     `json:"signals,omitempty"`
 	Offer       *Offer       `json:"offer,omitempty"`
 	Funding     *Funding     `json:"funding,omitempty"`
+	Settlement  *Settlement  `json:"settlement,omitempty"`
 }
 
 var (
@@ -194,6 +196,20 @@ func (s *Service) Accept(ctx context.Context, id string) (Application, error) {
 		if a.Offer == nil || !a.Offer.Approved {
 			return ErrDeclined
 		}
+		return nil
+	})
+}
+
+// Settle records the funded advance in the merchant's Xero books. A step that
+// fails saves nothing and can be tried again, and recording the advance is
+// safe to repeat because it looks for its own earlier record first.
+func (s *Service) Settle(ctx context.Context, id string) (Application, error) {
+	return s.step(ctx, id, "settle", Funded, Settled, func(ctx context.Context, f world.Facts, a *Application) error {
+		settlement, err := s.Vendors.recordAdvance(ctx, f, a.ID, *a.Funding)
+		if err != nil {
+			return err
+		}
+		a.Settlement = &settlement
 		return nil
 	})
 }

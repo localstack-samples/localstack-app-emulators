@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -46,6 +47,26 @@ type fakeVendors struct {
 	forms       map[string]url.Values
 	headers     map[string]http.Header
 	failPayouts int // how many payout requests to fail before one succeeds
+
+	// The merchant's Xero books.
+	xeroAccounts []string // account codes already in the chart
+	xeroContacts []map[string]string
+	bankTxs      []map[string]string
+	bodies       map[string][]byte
+	failBankTx   int // how many bank transaction requests to fail before one succeeds
+}
+
+// noteJSON records a JSON request and returns its body.
+func (f *fakeVendors) noteJSON(kind string, r *http.Request) []byte {
+	body, _ := io.ReadAll(r.Body)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.bodies == nil {
+		f.bodies = map[string][]byte{}
+	}
+	f.order = append(f.order, kind)
+	f.bodies[kind] = body
+	return body
 }
 
 func (f *fakeVendors) note(kind string, r *http.Request) {
@@ -157,6 +178,58 @@ func newFakeVendors(t *testing.T) *fakeVendors {
 			w.Write([]byte(`{"accounts":[{"account_id":"chk","subtype":"checking","mask":"0000","balances":{"current":110}}]}`))
 		case p == "/transactions/get":
 			w.Write([]byte(`{"total_transactions":2}`))
+		case p == "/api.xro/2.0/Accounts" && r.Method == "GET":
+			f.mu.Lock()
+			list := []map[string]string{}
+			for _, c := range f.xeroAccounts {
+				list = append(list, map[string]string{"Code": c})
+			}
+			f.mu.Unlock()
+			json.NewEncoder(w).Encode(map[string]any{"Accounts": list})
+		case p == "/api.xro/2.0/Accounts" && r.Method == "PUT":
+			var in struct{ Code string }
+			json.Unmarshal(f.noteJSON("account", r), &in)
+			f.mu.Lock()
+			f.xeroAccounts = append(f.xeroAccounts, in.Code)
+			f.mu.Unlock()
+			w.Write([]byte(`{"Accounts":[{"Code":"` + in.Code + `"}]}`))
+		case p == "/api.xro/2.0/Contacts" && r.Method == "GET":
+			f.mu.Lock()
+			list := append([]map[string]string{}, f.xeroContacts...)
+			f.mu.Unlock()
+			json.NewEncoder(w).Encode(map[string]any{"Contacts": list})
+		case p == "/api.xro/2.0/Contacts" && r.Method == "PUT":
+			var in struct{ Contacts []struct{ Name string } }
+			json.Unmarshal(f.noteJSON("contact", r), &in)
+			c := map[string]string{"ContactID": "c-lender", "Name": in.Contacts[0].Name}
+			f.mu.Lock()
+			f.xeroContacts = append(f.xeroContacts, c)
+			f.mu.Unlock()
+			json.NewEncoder(w).Encode(map[string]any{"Contacts": []map[string]string{c}})
+		case p == "/api.xro/2.0/BankTransactions" && r.Method == "GET":
+			f.mu.Lock()
+			list := append([]map[string]string{}, f.bankTxs...)
+			f.mu.Unlock()
+			json.NewEncoder(w).Encode(map[string]any{"BankTransactions": list})
+		case p == "/api.xro/2.0/BankTransactions" && r.Method == "PUT":
+			var in struct{ BankTransactions []struct{ Reference string } }
+			body := f.noteJSON("banktx", r)
+			json.Unmarshal(body, &in)
+			f.mu.Lock()
+			fail := f.failBankTx > 0
+			if fail {
+				f.failBankTx--
+			}
+			f.mu.Unlock()
+			if fail {
+				http.Error(w, `{"Title":"boom"}`, http.StatusInternalServerError)
+				return
+			}
+			tx := map[string]string{"BankTransactionID": "bt_advance", "Reference": in.BankTransactions[0].Reference}
+			f.mu.Lock()
+			f.bankTxs = append(f.bankTxs, tx)
+			f.mu.Unlock()
+			json.NewEncoder(w).Encode(map[string]any{"BankTransactions": []map[string]string{tx}})
 		case p == "/api.xro/2.0/Organisation":
 			w.Write([]byte(`{"Organisations":[{"Name":"Demo Company (Global)"}]}`))
 		case p == "/api.xro/2.0/Invoices":

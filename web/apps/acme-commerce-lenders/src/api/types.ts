@@ -8,6 +8,7 @@ export type ApplicationStatus =
   | 'offered'
   | 'accepted'
   | 'funded'
+  | 'settled'
 
 export interface Connection {
   vendor: string
@@ -44,6 +45,16 @@ export interface Funding {
   payout_status?: string
 }
 
+export interface Settlement {
+  amount_cents: number
+  bank_transaction_id: string
+  bank_account_code: string
+  liability_code: string
+  liability_name: string
+  reference: string
+  date: string
+}
+
 export interface Application {
   id: string
   merchant: string
@@ -51,6 +62,7 @@ export interface Application {
   connections?: Connection[]
   offer?: Offer
   funding?: Funding
+  settlement?: Settlement
 }
 
 export type EmulatorState =
