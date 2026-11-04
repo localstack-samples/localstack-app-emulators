@@ -54,3 +54,38 @@ func TestSensitiveMatchesSuffixesNotSubstrings(t *testing.T) {
 		}
 	}
 }
+
+func TestRedactMasksBankAccountNumbersButNotRoutingNumbers(t *testing.T) {
+	form := "external_account%5Baccount_number%5D=1111222233330000&external_account%5Brouting_number%5D=021000021&external_account%5Bobject%5D=bank_account"
+	out := string(redact("application/x-www-form-urlencoded", []byte(form)))
+	if strings.Contains(out, "1111222233330000") {
+		t.Fatalf("the account number leaked: %s", out)
+	}
+	if !strings.Contains(out, "021000021") || !strings.Contains(out, "bank_account") {
+		t.Fatalf("the routing number and the rest should survive: %s", out)
+	}
+
+	plaid := `{"numbers":{"ach":[{"account_id":"acc1","account":"1111222233330000","routing":"021000021"}]}}`
+	out = string(redact("application/json", []byte(plaid)))
+	if strings.Contains(out, "1111222233330000") || !strings.Contains(out, "021000021") || !strings.Contains(out, "acc1") {
+		t.Fatalf("Plaid's account number is masked and its routing number and id are not: %s", out)
+	}
+}
+
+func TestRedactLeavesABareAccountAloneWhenThereIsNoRouting(t *testing.T) {
+	out := string(redact("application/json", []byte(`{"id":"tr_1","destination":"acct_123","account":"acct_123"}`)))
+	if !strings.Contains(out, `"account":"acct_123"`) {
+		t.Fatalf("a Stripe account id is not a secret: %s", out)
+	}
+}
+
+func TestKeyName(t *testing.T) {
+	for in, want := range map[string]string{
+		"account_number": "account_number", "external_account[account_number]": "account_number",
+		"a[b][c]": "c", "plain": "plain", "odd[": "odd[",
+	} {
+		if got := keyName(in); got != want {
+			t.Errorf("keyName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
