@@ -1,0 +1,14 @@
+# Build output
+bin/
+dist/
+
+# Web workspace
+node_modules/
+
+# The web build writes the compiled UI here; only the placeholder is tracked
+apps/*/internal/ui/assets/*
+!apps/*/internal/ui/assets/placeholder.html
+
+# Local state
+*.db
+.env

@@ -1,0 +1,5 @@
+{
+  "name": "localstack-app-emulators-web",
+  "private": true,
+  "description": "Web UIs for the app emulator demos. Each app builds to static assets that its Go binary embeds."
+}
