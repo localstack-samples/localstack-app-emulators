@@ -2,6 +2,7 @@ package seed
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -74,10 +75,10 @@ func TestReadyClassifiesEachAppEmulator(t *testing.T) {
 	if !got[0].OK() || got[1].OK() {
 		t.Error("OK should be true only for healthy")
 	}
-	if h := got[2].Hint(); !strings.Contains(h, "PLAID_EMULATOR_URL") || !strings.Contains(h, "does not include plaid") {
+	if h := got[2].Hint; !strings.Contains(h, "PLAID_EMULATOR_URL") || !strings.Contains(h, "does not include plaid") {
 		t.Errorf("not-included hint should say how to run it yourself: %q", h)
 	}
-	if h := got[5].Hint(); !strings.Contains(h, "RESEND_EMULATOR_URL") {
+	if h := got[5].Hint; !strings.Contains(h, "RESEND_EMULATOR_URL") {
 		t.Errorf("unreachable hint should name the variable: %q", h)
 	}
 }
@@ -146,5 +147,30 @@ func TestRunStopsAtTheFirstFailureAndNamesTheStep(t *testing.T) {
 	}
 	if strings.Join(ran, ",") != "one,two" || len(events) != 2 || events[1].Err == nil || events[1].Elapsed <= 0 {
 		t.Fatalf("ran=%v events=%+v", ran, events)
+	}
+}
+
+// The UI reads the hint from the API, so it has to be in the JSON.
+func TestTheHintIsPartOfTheStatusJSON(t *testing.T) {
+	notFound := httptest.NewServer(http.NotFoundHandler())
+	defer notFound.Close()
+	target := wire.Direct("plaid", notFound.URL)
+	target.Source = wire.SourceLocalStack
+
+	raw, err := json.Marshal(Ready(context.Background(), nil, target)[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	json.Unmarshal(raw, &got)
+	if got["state"] != "not-included" || !strings.Contains(got["hint"].(string), "PLAID_EMULATOR_URL") {
+		t.Fatalf("the status JSON should carry the hint: %s", raw)
+	}
+
+	healthy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`{"status":"ok"}`)) }))
+	defer healthy.Close()
+	raw, _ = json.Marshal(Ready(context.Background(), nil, wire.Direct("stripe", healthy.URL))[0])
+	if strings.Contains(string(raw), "hint") {
+		t.Fatalf("a healthy app emulator needs no hint: %s", raw)
 	}
 }

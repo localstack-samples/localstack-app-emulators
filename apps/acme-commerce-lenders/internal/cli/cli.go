@@ -132,7 +132,7 @@ func (a *app) ready() error {
 		fmt.Fprintf(a.out, "  %-7s %-10s %-13s %s\n", s.Vendor, s.Source, s.State, s.URL)
 		if !s.OK() {
 			bad++
-			fmt.Fprintf(a.out, "          %s\n", s.Hint())
+			fmt.Fprintf(a.out, "          %s\n", s.Hint)
 		}
 	}
 	if bad > 0 {

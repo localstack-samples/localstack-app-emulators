@@ -44,7 +44,7 @@ func CheckReady(ctx context.Context, hc *http.Client, tg Targets) ([]seed.Status
 	var problems []string
 	for _, s := range statuses {
 		if !s.OK() {
-			problems = append(problems, fmt.Sprintf("%s (%s) is %s: %s", s.Vendor, s.Source, s.State, s.Hint()))
+			problems = append(problems, fmt.Sprintf("%s (%s) is %s: %s", s.Vendor, s.Source, s.State, s.Hint))
 		}
 	}
 	if len(problems) > 0 {
