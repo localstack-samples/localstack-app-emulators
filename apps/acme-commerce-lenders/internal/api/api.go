@@ -25,6 +25,7 @@ type Applications interface {
 	Offer(ctx context.Context, id string) (lender.Application, error)
 	Accept(ctx context.Context, id string) (lender.Application, error)
 	Fund(ctx context.Context, id string) (lender.Application, error)
+	Settle(ctx context.Context, id string) (lender.Application, error)
 }
 
 // Admin reports on the world and puts it back at its start.
@@ -54,6 +55,7 @@ func New(apps Applications, admin Admin, rec *wire.Recorder) http.Handler {
 	mux.HandleFunc("POST /api/applications/{id}/offer", h.step(apps.Offer, http.StatusOK))
 	mux.HandleFunc("POST /api/applications/{id}/accept", h.step(apps.Accept, http.StatusOK))
 	mux.HandleFunc("POST /api/applications/{id}/fund", h.step(apps.Fund, http.StatusOK))
+	mux.HandleFunc("POST /api/applications/{id}/settle", h.step(apps.Settle, http.StatusOK))
 	mux.HandleFunc("GET /api/events", h.events)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, errors.New("no such API route: "+r.Method+" "+r.URL.Path))

@@ -103,7 +103,7 @@ The UI and the API are served from the one binary, and the UI needs no network: 
 The demo is two clicks and a reset.
 
 1. **Apply for working capital.** The merchant applies, and the lender connects to Stripe, Plaid and Xero, reads what they hold and prices an offer. Each step shows as it finishes, with how long it took.
-2. **Accept the offer and fund it.** The advance is paid to the merchant's bank, and the page shows the bank account, the transfer and the payout.
+2. **Accept the offer and fund it.** The advance is paid to the merchant's bank and recorded in their Xero books. The page shows the bank account, the transfer, the payout and where the advance was booked.
 3. **Reset** puts every app emulator and the demo back at the start.
 
 The top of the page shows each app emulator, who serves it (LocalStack or a process you run), and whether it is ready. If one is not, the page says what to do. Apply stays disabled until all three are ready and the world is seeded.
@@ -120,6 +120,7 @@ curl -s -X POST localhost:8080/api/applications/app-0001/review   # read what th
 curl -s -X POST localhost:8080/api/applications/app-0001/offer    # price the offer
 curl -s -X POST localhost:8080/api/applications/app-0001/accept   # the merchant accepts
 curl -s -X POST localhost:8080/api/applications/app-0001/fund     # pay the advance out
+curl -s -X POST localhost:8080/api/applications/app-0001/settle   # record it in their Xero books
 ```
 
 For the seeded merchant the offer is an advance of **$30,000** for a flat 8% fee ($2,400), so $32,400 to repay. The advance is the last 30 days of card sales ($30,423.72) rounded down to $500. Each number in the offer names the vendor call it came from.
@@ -129,7 +130,7 @@ For the seeded merchant the offer is an advance of **$30,000** for a flat 8% fee
 | `GET /api/status` | Whether each app emulator is healthy and the world is seeded |
 | `POST /api/reset` | Wipes the app emulators and seeds the world again |
 | `POST /api/applications` | Starts an application |
-| `POST /api/applications/{id}/connect`, `review`, `offer`, `accept`, `fund` | The steps, which must happen in that order. A declined offer cannot be accepted. |
+| `POST /api/applications/{id}/connect`, `review`, `offer`, `accept`, `fund`, `settle` | The steps, which must happen in that order. A declined offer cannot be accepted. |
 | `GET /api/applications/{id}` | The application so far |
 | `GET /api/events?since=N` | Every vendor call made so far, newest after `N`, with request and response bodies. Credentials are masked. |
 
@@ -145,7 +146,19 @@ Accepting an approved offer and funding it does three things in Stripe:
 
 Each step is saved as it finishes, and the Stripe calls carry idempotency keys. If funding stops halfway, run `fund` again: it picks up where it stopped and cannot pay twice.
 
-The Stripe app emulator does not keep a platform balance, so the lender's own side of the transfer does not show as a debit. The payout response also does not name its destination, so the bank account is shown on the application's funding record. Showing the money arrive in the merchant's Xero books is not built yet, and waits on Xero's bank transactions.
+The Stripe app emulator does not keep a platform balance, so the lender's own side of the transfer does not show as a debit. The payout response also does not name its destination, so the bank account is shown on the application's funding record.
+
+### Settlement in Xero
+
+Funding moves the money, and settling records it in the merchant's books. The advance is a loan, so it is booked as money received against a liability account, which debits the bank and credits the loan:
+
+1. The merchant's chart of accounts gets a current liability account, `810 Working capital advance`, if it does not have one.
+2. The lender is added to the merchant's contacts, if it is not there.
+3. A bank transaction of type RECEIVE for $30,000 is recorded into bank account `090`, from the lender and coded to account `810`. Its reference is the application's id.
+
+Each of those checks before it creates, and the bank transaction is found by its reference before it is recorded, so running `settle` again after a failure never books the advance twice. A second application on the same books reuses the account and the contact.
+
+This needs a Xero app emulator that can create accounts and bank transactions, which means one built from `WonderTwin-AI/wondertwin` after those landed. The booking needs no manual journal.
 
 ## Reset
 

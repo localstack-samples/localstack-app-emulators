@@ -1,4 +1,4 @@
-import type { Funding } from '@/api/types'
+import type { Funding, Settlement } from '@/api/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { money } from '@/lib/format'
@@ -19,7 +19,13 @@ function Row({
 }
 
 /** How the advance reached the merchant. */
-export function FundingCard({ funding }: { funding: Funding }) {
+export function FundingCard({
+  funding,
+  settlement,
+}: {
+  funding: Funding
+  settlement?: Settlement
+}) {
   return (
     <Card data-testid="funding">
       <div className="flex items-center justify-between">
@@ -43,9 +49,28 @@ export function FundingCard({ funding }: { funding: Funding }) {
           </Badge>
         </Row>
       </dl>
-      <CardDescription>
-        The settlement in the merchant's Xero books is not built yet.
-      </CardDescription>
+      {settlement ? (
+        <dl className="text-sm" data-testid="settlement">
+          <Row label="In the merchant's Xero books">
+            Received into bank account {settlement.bank_account_code}
+          </Row>
+          <Row label="Booked against">
+            {settlement.liability_name}
+            <span className="ml-2 font-mono text-xs text-muted-foreground">
+              {settlement.liability_code}
+            </span>
+          </Row>
+          <Row label="Bank transaction">
+            <span className="font-mono text-xs">
+              {settlement.bank_transaction_id}
+            </span>
+          </Row>
+        </dl>
+      ) : (
+        <CardDescription>
+          The settlement in the merchant's Xero books has not been recorded yet.
+        </CardDescription>
+      )}
     </Card>
   )
 }

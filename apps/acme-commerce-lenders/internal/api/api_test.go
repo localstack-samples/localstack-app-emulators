@@ -49,6 +49,9 @@ func (f *fakeApps) Accept(_ context.Context, id string) (lender.Application, err
 func (f *fakeApps) Fund(_ context.Context, id string) (lender.Application, error) {
 	return f.rec("fund", id)
 }
+func (f *fakeApps) Settle(_ context.Context, id string) (lender.Application, error) {
+	return f.rec("settle", id)
+}
 
 type fakeAdmin struct {
 	resetErr error
@@ -90,6 +93,7 @@ func TestRoutesCallTheLenderAndReturnJSON(t *testing.T) {
 		{"POST", "/api/applications/app-0007/offer", 200, "offer app-0007"},
 		{"POST", "/api/applications/app-0007/accept", 200, "accept app-0007"},
 		{"POST", "/api/applications/app-0007/fund", 200, "fund app-0007"},
+		{"POST", "/api/applications/app-0007/settle", 200, "settle app-0007"},
 	} {
 		rec := do(h, tc.method, tc.path)
 		if rec.Code != tc.status || !strings.HasPrefix(rec.Header().Get("Content-Type"), "application/json") {

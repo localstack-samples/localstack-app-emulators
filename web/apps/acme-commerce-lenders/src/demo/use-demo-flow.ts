@@ -10,6 +10,7 @@ export type StepKey =
   | 'offer'
   | 'accept'
   | 'fund'
+  | 'settle'
 
 export const stepLabels: Record<StepKey, string> = {
   apply: 'The merchant applies',
@@ -18,12 +19,13 @@ export const stepLabels: Record<StepKey, string> = {
   offer: 'Price an offer',
   accept: 'The merchant accepts',
   fund: 'Pay the advance to their bank',
+  settle: 'Record it in their Xero books',
 }
 
 /** The first click runs these. */
 export const applySteps: StepKey[] = ['apply', 'connect', 'review', 'offer']
 /** The second click runs these. */
-export const acceptSteps: StepKey[] = ['accept', 'fund']
+export const acceptSteps: StepKey[] = ['accept', 'fund', 'settle']
 
 export interface StepState {
   status: 'pending' | 'running' | 'done' | 'error'
@@ -38,6 +40,7 @@ const fresh = (): Record<StepKey, StepState> => ({
   offer: { status: 'pending' },
   accept: { status: 'pending' },
   fund: { status: 'pending' },
+  settle: { status: 'pending' },
 })
 
 /**
@@ -139,6 +142,8 @@ function call(key: StepKey, app: Application | undefined) {
       return api.accept(app.id)
     case 'fund':
       return api.fund(app.id)
+    case 'settle':
+      return api.settle(app.id)
     default:
       throw new Error(`Unknown step ${key}`)
   }

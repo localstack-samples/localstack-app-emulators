@@ -17,17 +17,18 @@ import (
 
 // fakeStripe records what a seeder does to it.
 type fakeStripe struct {
-	mu       sync.Mutex
-	srv      *httptest.Server
-	accounts int
-	external int
-	intents  []url.Values
-	intentAc []string // the Stripe-Account header on each intent
-	funded   []int64
-	payouts  []int64
-	advances int
-	resets   int
-	log      []string // "fund" and "payout" in the order they happened
+	mu           sync.Mutex
+	srv          *httptest.Server
+	accounts     int
+	external     int
+	externalForm url.Values // what the first bank account was created from
+	intents      []url.Values
+	intentAc     []string // the Stripe-Account header on each intent
+	funded       []int64
+	payouts      []int64
+	advances     int
+	resets       int
+	log          []string // "fund" and "payout" in the order they happened
 }
 
 func newFakeStripe(t *testing.T) *fakeStripe {
@@ -49,6 +50,13 @@ func newFakeStripe(t *testing.T) *fakeStripe {
 			w.Write([]byte(`{"id":"acct_merchant"}`))
 		case r.URL.Path == "/v1/accounts/acct_merchant/external_accounts":
 			f.external++
+			f.externalForm = form
+			// The real app emulator refuses a token it does not know. Stripe's
+			// own test tokens are the btok_us_verified family.
+			if tok := form.Get("external_account"); tok != "" && !strings.HasPrefix(tok, "btok_us_verified") {
+				http.Error(w, `{"error":{"code":"resource_missing","message":"No such token: '`+tok+`'"}}`, http.StatusBadRequest)
+				return
+			}
 			w.Write([]byte(`{"id":"ba_1"}`))
 		case r.URL.Path == "/v1/payment_intents":
 			f.intents = append(f.intents, form)
@@ -174,5 +182,17 @@ func TestSeedStripeSendsTheLendersKeyOnEveryCall(t *testing.T) {
 	}
 	if len(unauthenticated) != 0 {
 		t.Fatalf("calls without the lender's key: %v", unauthenticated[:min(3, len(unauthenticated))])
+	}
+}
+
+// The Stripe app emulator refuses a token it does not know, so the seeder has to
+// use one of Stripe's own test tokens. btok_us is not one.
+func TestSeedStripeGivesTheMerchantARealStripeTestToken(t *testing.T) {
+	f := newFakeStripe(t)
+	if _, err := SeedStripe(context.Background(), nil, wire.Direct("stripe", f.srv.URL)); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.externalForm.Get("external_account"); got != "btok_us_verified" {
+		t.Fatalf("external_account = %q, want Stripe's test token btok_us_verified", got)
 	}
 }
