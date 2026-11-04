@@ -164,7 +164,7 @@ func TestSeedStripeSendsTheLendersKeyOnEveryCall(t *testing.T) {
 	f := newFakeStripe(t)
 	inner := f.srv.Config.Handler
 	f.srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/v1/") && r.Header.Get("Authorization") != "Bearer "+stripeKey {
+		if strings.HasPrefix(r.URL.Path, "/v1/") && r.Header.Get("Authorization") != "Bearer "+StripeKey {
 			unauthenticated = append(unauthenticated, r.URL.Path)
 		}
 		inner.ServeHTTP(w, r)
