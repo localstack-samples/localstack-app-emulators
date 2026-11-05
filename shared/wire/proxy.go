@@ -31,7 +31,6 @@ const (
 const (
 	SourceLocalStack = "localstack" // LocalStack's gateway serves it
 	SourceLocal      = "local"      // you run it yourself, such as a binary built from WonderTwin-AI/wondertwin
-	SourceService    = "service"    // the vendor's own service, reached by changing the base URL
 )
 
 // Who produced a response. These values are provisional: they name the two
@@ -39,7 +38,6 @@ const (
 const (
 	OriginEmulator = "emulator" // an app emulator, wherever it runs
 	OriginVendor   = "vendor"   // the vendor's own service or sandbox
-	OriginBlocked  = "blocked"  // a dry run built the request for the vendor's service and did not send it
 )
 
 // Target is where one vendor's calls go.
@@ -49,10 +47,11 @@ type Target struct {
 	Upstream string // base URL dialled, such as http://127.0.0.1:4566
 	Host     string // Host header sent upstream; empty keeps the proxy's own
 
-	// DryRun builds each request and records it, then refuses to send it. It
-	// is how the demo shows a vendor's real base URL without calling the
-	// vendor. A dry-run call is recorded with OriginBlocked.
-	DryRun bool
+	// WouldSend is the vendor's own base URL, when the demo has been pointed at
+	// it. The call is still answered by the app emulator, and nothing is sent to
+	// WouldSend. The recorded call carries it, so the inspector can show where
+	// the call would have gone.
+	WouldSend string
 	// Invalid is why the target cannot be called, such as a base URL that does
 	// not parse. Every call fails with it, and nothing is sent.
 	Invalid string
@@ -146,7 +145,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Vendor:          t.Vendor,
 		Source:          t.Source,
 		Origin:          t.origin(),
-		Upstream:        t.BaseURL(),
+		WouldSend:       t.WouldSend,
 		EmulatorVersion: t.EmulatorVersion,
 		ArtifactVersion: t.ArtifactVersion,
 		Method:          r.Method,
@@ -164,14 +163,6 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p.fail(w, ev, t, start, http.StatusBadGateway, errors.New(t.Invalid))
 		return
 	}
-	if t.DryRun {
-		ev.Origin = OriginBlocked
-		p.fail(w, ev, t, start, http.StatusServiceUnavailable, fmt.Errorf(
-			"dry run: this %s %s was built for %s and was not sent. Switch the run to Live to send it, or use the emulator",
-			r.Method, r.URL.Path, t.BaseURL()))
-		return
-	}
-
 	out, err := http.NewRequestWithContext(r.Context(), r.Method, t.Upstream+r.URL.RequestURI(), bytes.NewReader(reqBody))
 	if err != nil {
 		p.fail(w, ev, t, start, http.StatusBadGateway, err)
@@ -179,19 +170,13 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	out.Header = r.Header.Clone()
 	out.Header.Del(hopByHopConnection)
-	if t.Source == SourceService {
-		// The demo holds no credential for a vendor's service. Whatever it
-		// signs requests with is a made-up value for the app emulator.
-		out.Header.Del("Authorization")
-	}
 	if t.Host != "" {
 		out.Host = t.Host
 	}
 
 	resp, err := p.client.Do(out)
 	if err != nil {
-		p.fail(w, ev, t, start, http.StatusBadGateway, fmt.Errorf(
-			"cannot reach %s at %s: %w. Check the URL in the settings, or switch it back to the emulator", t.Vendor, t.BaseURL(), err))
+		p.fail(w, ev, t, start, http.StatusBadGateway, fmt.Errorf("cannot reach %s at %s: %w", t.Vendor, t.BaseURL(), err))
 		return
 	}
 	defer resp.Body.Close()

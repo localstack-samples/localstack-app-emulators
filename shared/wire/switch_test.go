@@ -14,11 +14,10 @@ func lanes() []Lane {
 
 func TestSwitchStartsInDemoMode(t *testing.T) {
 	s := NewSwitch(lanes()...)
-	st := s.State()
-	if st.Mode != ModeDemo || st.Style != StyleDryRun {
+	if st := s.State(); st.Mode != ModeDemo {
 		t.Fatalf("state = %+v", st)
 	}
-	if got := s.Target("stripe"); got.Source != SourceLocalStack || got.Host == "" {
+	if got := s.Target("stripe"); got.Source != SourceLocalStack || got.Host == "" || got.WouldSend != "" {
 		t.Fatalf("stripe target = %+v", got)
 	}
 	if got := s.Target("plaid"); got.Source != SourceLocal || got.Upstream != "http://127.0.0.1:5101" {
@@ -26,35 +25,31 @@ func TestSwitchStartsInDemoMode(t *testing.T) {
 	}
 }
 
-func TestSwitchServiceURLIsProductionAndDryRunByDefault(t *testing.T) {
+func TestSwitchPointedAtAServiceStaysOnTheEmulatorAndRemembersTheService(t *testing.T) {
 	s := NewSwitch(lanes()...)
-	if err := s.Apply(Update{URLs: map[string]string{"stripe": "https://api.stripe.com/"}}); err != nil {
+	if err := s.Apply(map[string]string{"stripe": "https://api.stripe.com/"}); err != nil {
 		t.Fatal(err)
 	}
 	if st := s.State(); st.Mode != ModeProduction || !st.Lanes[0].Service || st.Lanes[1].Service {
 		t.Fatalf("state = %+v", st)
 	}
 	got := s.Target("stripe")
-	if !got.DryRun || got.Source != SourceService || got.Upstream != "https://api.stripe.com" || got.Invalid != "" {
-		t.Fatalf("target = %+v", got)
+	if got.Source != SourceLocalStack || got.Host == "" || got.WouldSend != "https://api.stripe.com" || got.Invalid != "" {
+		t.Fatalf("target = %+v, want the emulator with WouldSend set", got)
 	}
-	live := StyleLive
-	if err := s.Apply(Update{Style: &live}); err != nil {
-		t.Fatal(err)
-	}
-	if got := s.Target("stripe"); got.DryRun {
-		t.Fatalf("live target is still a dry run: %+v", got)
+	if s.Target("plaid").WouldSend != "" {
+		t.Fatal("an untouched vendor has a WouldSend")
 	}
 }
 
 func TestSwitchBackToEmulatorIsDemoMode(t *testing.T) {
 	s := NewSwitch(lanes()...)
-	_ = s.Apply(Update{URLs: map[string]string{"stripe": "https://api.stripe.com"}})
-	_ = s.Apply(Update{URLs: map[string]string{"stripe": s.State().Lanes[0].EmulatorURL}})
+	_ = s.Apply(map[string]string{"stripe": "https://api.stripe.com"})
+	_ = s.Apply(map[string]string{"stripe": s.State().Lanes[0].EmulatorURL})
 	if st := s.State(); st.Mode != ModeDemo {
 		t.Fatalf("state = %+v", st)
 	}
-	if got := s.Target("stripe"); got.Source != SourceLocalStack {
+	if got := s.Target("stripe"); got.WouldSend != "" {
 		t.Fatalf("target = %+v", got)
 	}
 }
@@ -62,27 +57,24 @@ func TestSwitchBackToEmulatorIsDemoMode(t *testing.T) {
 func TestSwitchReportsAnInvalidURLAndFailsTheCall(t *testing.T) {
 	for _, raw := range []string{"", "   ", "stripe", "ftp://x", "http://"} {
 		s := NewSwitch(lanes()...)
-		_ = s.Apply(Update{URLs: map[string]string{"stripe": raw}})
+		_ = s.Apply(map[string]string{"stripe": raw})
 		lane := s.State().Lanes[0]
-		if lane.Error == "" || !strings.Contains(lane.Error, "emulator") && !strings.Contains(lane.Error, "Use") {
+		if lane.Error == "" || !strings.Contains(lane.Error, "Use") {
 			t.Fatalf("%q: no helpful error: %+v", raw, lane)
 		}
 		if s.Target("stripe").Invalid == "" {
-			t.Fatalf("%q: target is callable", raw)
+			t.Fatalf("%q: target is usable", raw)
 		}
 	}
 }
 
-func TestSwitchRejectsUnknownStyleAndVendor(t *testing.T) {
+func TestSwitchRejectsAnUnknownVendorAndChangesNothing(t *testing.T) {
 	s := NewSwitch(lanes()...)
-	bad := "yolo"
-	if err := s.Apply(Update{Style: &bad}); err == nil {
-		t.Fatal("accepted an unknown style")
-	}
-	if err := s.Apply(Update{URLs: map[string]string{"nope": "http://x"}}); err == nil {
+	err := s.Apply(map[string]string{"stripe": "https://api.stripe.com", "nope": "http://x"})
+	if err == nil {
 		t.Fatal("accepted an unknown vendor")
 	}
-	if st := s.State(); st.Style != StyleDryRun {
+	if st := s.State(); st.Mode != ModeDemo {
 		t.Fatalf("a rejected update changed the state: %+v", st)
 	}
 }

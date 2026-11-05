@@ -10,13 +10,7 @@ import (
 // Modes a Switch reports.
 const (
 	ModeDemo       = "demo"       // every vendor is at its app emulator
-	ModeProduction = "production" // at least one vendor is at a URL that is not its app emulator
-)
-
-// Run styles, for a vendor that is not at its app emulator.
-const (
-	StyleDryRun = "dry"  // build and record the request, send nothing
-	StyleLive   = "live" // send it, with no credential
+	ModeProduction = "production" // at least one vendor has been pointed at its own service
 )
 
 // Lane is one vendor a Switch can point at its app emulator or at the
@@ -36,40 +30,34 @@ type LaneState struct {
 	EmulatorURL string `json:"emulator_url"`
 	ServiceURL  string `json:"service_url"`
 	Service     bool   `json:"service"`         // the URL is not the app emulator's
-	Error       string `json:"error,omitempty"` // why the URL cannot be called
+	Error       string `json:"error,omitempty"` // why the URL cannot be used
 }
 
 // State is what a Switch reports.
 type State struct {
 	Mode  string      `json:"mode"`
-	Style string      `json:"style"`
 	Lanes []LaneState `json:"lanes"`
 }
 
-// Update changes a Switch. A nil field is left alone.
-type Update struct {
-	Style *string           `json:"style,omitempty"`
-	URLs  map[string]string `json:"urls,omitempty"` // vendor to base URL
-}
-
-// Switch holds, for each vendor, the base URL the demo is calling now, and
-// whether a call to a vendor's own service is sent. It is safe for concurrent
-// use. The demo's flow asks it for a target on every call, so a change takes
-// effect at once, with no restart.
+// Switch holds, for each vendor, the base URL the demo has been pointed at.
 //
-// A Switch never sends a credential: a call to a vendor's service is either
-// dry-run, so it is built and not sent, or live with the Authorization header
-// removed.
+// The demo shows the mechanism of moving from an app emulator to a vendor: only
+// the base URL changes. It holds no credential for a vendor's service, so a
+// call is never sent to one. A call to a vendor that has been pointed at its
+// own service is still answered by the app emulator, and is recorded with where
+// it would have gone.
+//
+// A Switch is safe for concurrent use. The demo's flow asks it for a target on
+// every call, so a change takes effect at once, with no restart.
 type Switch struct {
 	mu    sync.RWMutex
 	lanes []Lane
 	urls  map[string]string
-	style string
 }
 
-// NewSwitch starts every lane at its app emulator, in dry-run style.
+// NewSwitch starts every lane at its app emulator.
 func NewSwitch(lanes ...Lane) *Switch {
-	s := &Switch{lanes: lanes, urls: map[string]string{}, style: StyleDryRun}
+	s := &Switch{lanes: lanes, urls: map[string]string{}}
 	for _, l := range lanes {
 		s.urls[l.Vendor] = l.Emulator.BaseURL()
 	}
@@ -87,7 +75,7 @@ func (s *Switch) lane(vendor string) (Lane, bool) {
 
 func clean(u string) string { return strings.TrimRight(strings.TrimSpace(u), "/") }
 
-// Check says why a base URL cannot be called, or returns "".
+// Check says why a base URL cannot be used, or returns "".
 func Check(name, raw string) string {
 	raw = clean(raw)
 	if raw == "" {
@@ -95,12 +83,14 @@ func Check(name, raw string) string {
 	}
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return fmt.Sprintf("%q is not a URL the demo can call. Start it with http:// or https://, such as https://example.com, or press Use emulator.", raw)
+		return fmt.Sprintf("%q is not a URL the demo can use. Start it with http:// or https://, such as https://example.com, or press Use emulator.", raw)
 	}
 	return ""
 }
 
-// Target is where the vendor's calls go now.
+// Target is where the vendor's calls go now: always the app emulator, with
+// WouldSend set when the vendor has been pointed at another URL. A URL that
+// cannot be used makes every call fail with the reason.
 func (s *Switch) Target(vendor string) Target {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -112,8 +102,11 @@ func (s *Switch) Target(vendor string) Target {
 	if u == l.Emulator.BaseURL() {
 		return l.Emulator
 	}
-	t := Target{Vendor: vendor, Source: SourceService, Upstream: u, Origin: OriginVendor, DryRun: s.style == StyleDryRun}
-	t.Invalid = Check(l.Name, u)
+	if reason := Check(l.Name, u); reason != "" {
+		return Target{Vendor: vendor, Source: l.Emulator.Source, Invalid: reason}
+	}
+	t := l.Emulator
+	t.WouldSend = u
 	return t
 }
 
@@ -121,7 +114,7 @@ func (s *Switch) Target(vendor string) Target {
 func (s *Switch) State() State {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	st := State{Mode: ModeDemo, Style: s.style}
+	st := State{Mode: ModeDemo}
 	for _, l := range s.lanes {
 		u := s.urls[l.Vendor]
 		ls := LaneState{
@@ -138,24 +131,18 @@ func (s *Switch) State() State {
 	return st
 }
 
-// Apply makes the change. It rejects a style or a vendor it does not know, and
-// otherwise accepts any URL: one that cannot be called is reported by State and
+// Apply points vendors at URLs. It rejects a vendor it does not know, and
+// otherwise accepts any URL: one that cannot be used is reported by State and
 // fails the call that uses it, so a presenter sees why.
-func (s *Switch) Apply(u Update) error {
+func (s *Switch) Apply(urls map[string]string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if u.Style != nil && *u.Style != StyleDryRun && *u.Style != StyleLive {
-		return fmt.Errorf("style must be %q or %q", StyleDryRun, StyleLive)
-	}
-	for v := range u.URLs {
+	for v := range urls {
 		if _, ok := s.lane(v); !ok {
 			return fmt.Errorf("no vendor named %q", v)
 		}
 	}
-	if u.Style != nil {
-		s.style = *u.Style
-	}
-	for v, raw := range u.URLs {
+	for v, raw := range urls {
 		s.urls[v] = clean(raw)
 	}
 	return nil

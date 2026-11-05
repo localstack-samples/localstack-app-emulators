@@ -259,7 +259,7 @@ func TestWorldAdminReportsReadinessAndResetsTheRecorder(t *testing.T) {
 	}
 }
 
-func TestTargetsReportAndChangeWhereEachVendorIsCalled(t *testing.T) {
+func TestTargetsReportAndChangeWhichBaseURLEachVendorIsPointedAt(t *testing.T) {
 	sw := wire.NewSwitch(
 		wire.Lane{Vendor: "stripe", Name: "Stripe", Emulator: wire.LocalStack("stripe"), ServiceURL: "https://api.stripe.com"},
 	)
@@ -279,7 +279,7 @@ func TestTargetsReportAndChangeWhereEachVendorIsCalled(t *testing.T) {
 		return rec
 	}
 
-	if st := get(); st.Mode != wire.ModeDemo || st.Style != wire.StyleDryRun || len(st.Lanes) != 1 {
+	if st := get(); st.Mode != wire.ModeDemo || len(st.Lanes) != 1 {
 		t.Fatalf("start: %+v", st)
 	}
 	if rec := put(`{"urls":{"stripe":"https://api.stripe.com"}}`); rec.Code != 200 {
@@ -291,7 +291,7 @@ func TestTargetsReportAndChangeWhereEachVendorIsCalled(t *testing.T) {
 	if rec := put(`{"urls":{"stripe":"stripe"}}`); rec.Code != 200 || get().Lanes[0].Error == "" {
 		t.Fatalf("an invalid URL is reported in the state: %d %+v", rec.Code, get())
 	}
-	for _, body := range []string{`{"style":"yolo"}`, `{"urls":{"nope":"http://x"}}`, `not json`} {
+	for _, body := range []string{`{"urls":{"nope":"http://x"}}`, `not json`} {
 		if rec := put(body); rec.Code != 400 {
 			t.Errorf("PUT %s: %d, want 400", body, rec.Code)
 		}

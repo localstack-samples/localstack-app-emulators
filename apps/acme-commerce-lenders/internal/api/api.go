@@ -148,22 +148,24 @@ func (h *handler) events(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"events": evs, "last": last, "generation": h.rec.Generation()})
 }
 
-// targets says where each vendor's calls go now, and whether the demo is in
-// demo mode (every vendor at its app emulator) or production mode.
+// targets says which base URL each vendor has been pointed at, and whether the
+// demo is in demo mode (every vendor at its app emulator) or production mode.
 func (h *handler) targets(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h.sw.State())
 }
 
-// setTargets changes the run style or any vendor's base URL. A URL that cannot
-// be called is accepted and reported in the state, so the UI can say why a run
-// will fail before it starts.
+// setTargets points vendors at base URLs. A URL that cannot be used is accepted
+// and reported in the state, so the UI can say why a run will fail before it
+// starts.
 func (h *handler) setTargets(w http.ResponseWriter, r *http.Request) {
-	var u wire.Update
+	var u struct {
+		URLs map[string]string `json:"urls"`
+	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&u); err != nil {
-		writeError(w, http.StatusBadRequest, errors.New("the body must be JSON like {\"urls\":{\"stripe\":\"https://api.stripe.com\"},\"style\":\"dry\"}"))
+		writeError(w, http.StatusBadRequest, errors.New("the body must be JSON like {\"urls\":{\"stripe\":\"https://api.stripe.com\"}}"))
 		return
 	}
-	if err := h.sw.Apply(u); err != nil {
+	if err := h.sw.Apply(u.URLs); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
