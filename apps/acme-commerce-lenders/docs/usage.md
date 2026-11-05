@@ -59,7 +59,7 @@ A vendor with no `<VENDOR>_EMULATOR_URL` set uses LocalStack. When your LocalSta
 
 Beside the vendor, method, path and bodies, each call the inspector shows records which app emulator answered it and at which release:
 
-- **`origin`** is who produced the response. It is `emulator` for every call the demo makes.
+- **`origin`** is who produced the response. It is `emulator` for every call the demo makes in Demo Mode. In Production Mode it is `blocked` for a dry run, which was built and not sent, and `vendor` for a live call. `upstream` is the base URL the call was addressed to.
 - **`emulator_version`** is the release id of the app emulator, such as `0123456789ab`. An app emulator does not announce its release, because the id is derived from the built binaries. Set `<VENDOR>_EMULATOR_VERSION` (for example `PLAID_EMULATOR_VERSION`) to the id of the release you installed, which is in its tag, `twin-<name>-v<id>`. Unset means unknown, and the field is left out.
 - **`artifact_version`** is the SDK or API version the calls were written against. The demo calls the vendors over plain HTTP and sets none, so it is left out.
 
@@ -142,6 +142,8 @@ For the seeded merchant the offer is an advance of **$30,000** for a flat 8% fee
 | `POST /api/applications` | Starts an application |
 | `POST /api/applications/{id}/connect`, `review`, `offer`, `accept`, `fund`, `settle` | The steps, which must happen in that order. A declined offer cannot be accepted. |
 | `GET /api/applications/{id}` | The application so far |
+| `GET /api/targets` | The base URL each vendor is called at, the mode (`demo` or `production`) and the run style (`dry` or `live`) |
+| `PUT /api/targets` | Changes them: `{"urls":{"stripe":"https://api.stripe.com"},"style":"live"}`. A URL that cannot be called is reported in the state and fails the call that uses it. |
 | `GET /api/events?since=N` | Every vendor call made so far, newest after `N`, with request and response bodies. Credentials are masked. |
 
 Plaid's balance is shown with the offer but does not change it, because the Plaid app emulator's data is too thin to price against.
@@ -184,6 +186,24 @@ Each call is one row, newest first:
 The inspector shows the calls the lender makes while the demo runs. The calls that seed the world are not part of it. **Reset** clears the list, and the inspector starts again from empty, whichever tab you reset from.
 
 The binary keeps the most recent 2,000 calls. Reading a merchant's sales is paged, so one run makes dozens of calls to Stripe.
+
+## Demo Mode and Production Mode
+
+A banner under the header says which mode the demo is in. It cannot be dismissed.
+
+- **Demo Mode** is the default. Every vendor is called at its app emulator.
+- **Production Mode** starts when any vendor's base URL is changed to something other than its app emulator. Open the gear in the banner, edit a vendor's URL, or press **Use service** to fill in the vendor's own base URL (`https://api.stripe.com`, `https://production.plaid.com`, `https://api.xero.com`). **Use emulator** puts the app emulator's URL back, so a URL deleted by mistake is one click to restore.
+
+The point is to show the mechanism: the lender's code is the same in both modes and only the base URL changes. The demo never holds a credential for a vendor's service, so Production Mode does not run the whole flow. It shows the first call going to the real address, and you choose what happens to it:
+
+| Run style | What happens | Needs internet |
+|---|---|---|
+| **Dry run** (default) | Each request is built and recorded in the inspector, with the real host it was addressed to, and nothing is sent. The inspector marks it **Dry run, not sent**. | No |
+| **Live** | The request is sent to the vendor with no credential, and the vendor's own refusal comes back. | Yes |
+
+Live is off unless you choose it, and the banner says so. The demo removes the `Authorization` header from a live call. Plaid's body carries made-up `client_id` and `secret` values meant for the app emulator, which Plaid will reject.
+
+If a URL cannot be called, such as one that is empty or does not start with `http://` or `https://`, the banner says why and **Apply** stays disabled until it is fixed. A URL that is valid but unreachable fails the step with a message that names the vendor and the URL. Reset only ever wipes the app emulators, never a vendor's service.
 
 ## Reset
 
