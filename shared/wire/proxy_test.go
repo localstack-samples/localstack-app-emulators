@@ -283,3 +283,89 @@ func TestTargetFromEnvReadsTheEmulatorVersion(t *testing.T) {
 		t.Fatalf("an unset version is unknown, not guessed: %+v", got)
 	}
 }
+
+func TestProxyDryRunSendsNothingAndRecordsABlockedCall(t *testing.T) {
+	called := false
+	up, _ := upstream(t, func(http.ResponseWriter, *http.Request) { called = true })
+	rec := NewRecorder(10)
+	px := httptest.NewServer(NewProxy(Target{Vendor: "stripe", Source: SourceService, Upstream: up.URL, Origin: OriginVendor, DryRun: true}, rec))
+	defer px.Close()
+
+	resp, err := http.Post(px.URL+"/v1/charges", "application/json", strings.NewReader(`{"amount":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	if called {
+		t.Fatal("a dry run reached the upstream")
+	}
+	if resp.StatusCode != http.StatusServiceUnavailable || !strings.Contains(string(body), "dry run") {
+		t.Fatalf("caller got %d %q", resp.StatusCode, body)
+	}
+	evs := rec.Events()
+	if len(evs) != 1 || evs[0].Origin != OriginBlocked || evs[0].Upstream != up.URL || evs[0].Path != "/v1/charges" || evs[0].Request.Content != `{"amount":1}` {
+		t.Fatalf("events = %+v", evs)
+	}
+}
+
+func TestProxyInvalidTargetFailsWithItsReason(t *testing.T) {
+	rec := NewRecorder(10)
+	px := httptest.NewServer(NewProxy(Target{Vendor: "plaid", Source: SourceService, Invalid: "not a URL"}, rec))
+	defer px.Close()
+
+	resp, err := http.Post(px.URL+"/link/token/create", "application/json", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadGateway || !strings.Contains(string(body), "not a URL") {
+		t.Fatalf("caller got %d %q", resp.StatusCode, body)
+	}
+}
+
+func TestProxyLiveServiceCallCarriesNoAuthorization(t *testing.T) {
+	var auth string
+	up, _ := upstream(t, func(w http.ResponseWriter, r *http.Request) {
+		auth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusUnauthorized)
+	})
+	rec := NewRecorder(10)
+	px := httptest.NewServer(NewProxy(Target{Vendor: "stripe", Source: SourceService, Upstream: up.URL, Origin: OriginVendor}, rec))
+	defer px.Close()
+
+	req, _ := http.NewRequest("GET", px.URL+"/v1/balance", nil)
+	req.Header.Set("Authorization", "Bearer sk_test_made_up")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if auth != "" {
+		t.Fatalf("the service received Authorization %q", auth)
+	}
+	if evs := rec.Events(); len(evs) != 1 || evs[0].Origin != OriginVendor || evs[0].Status != http.StatusUnauthorized {
+		t.Fatalf("events = %+v", evs)
+	}
+}
+
+func TestProxyUnreachableURLSaysWhatToDo(t *testing.T) {
+	up, _ := upstream(t, func(http.ResponseWriter, *http.Request) {})
+	dead := up.URL
+	up.Close()
+	rec := NewRecorder(10)
+	px := httptest.NewServer(NewProxy(Target{Vendor: "xero", Source: SourceService, Upstream: dead, Origin: OriginVendor}, rec))
+	defer px.Close()
+
+	resp, err := http.Get(px.URL + "/api.xro/2.0/Invoices")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadGateway || !strings.Contains(string(body), "cannot reach xero at "+dead) || !strings.Contains(string(body), "switch it back to the emulator") {
+		t.Fatalf("caller got %d %q", resp.StatusCode, body)
+	}
+}
