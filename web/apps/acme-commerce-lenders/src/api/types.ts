@@ -105,7 +105,11 @@ export interface WireEvent {
   id: number
   time: string
   vendor: string
-  source: 'localstack' | 'local'
+  source: 'localstack' | 'local' | 'service'
+  /** Who produced the response. `blocked` is a dry run: built, not sent. */
+  origin: 'emulator' | 'vendor' | 'blocked'
+  /** The base URL the call was addressed to. */
+  upstream?: string
   method: string
   path: string
   status: number
@@ -120,4 +124,30 @@ export interface EventsResponse {
   last: number
   /** Changes when a reset clears the recording. */
   generation: number
+}
+
+export type RunStyle = 'dry' | 'live'
+
+/** One vendor, as the switch holds it. */
+export interface Lane {
+  vendor: string
+  name: string
+  url: string
+  emulator_url: string
+  service_url: string
+  /** The URL is not the app emulator's. */
+  service: boolean
+  /** Why the URL cannot be called. */
+  error?: string
+}
+
+export interface Targets {
+  mode: 'demo' | 'production'
+  style: RunStyle
+  lanes: Lane[]
+}
+
+export interface TargetsUpdate {
+  style?: RunStyle
+  urls?: Record<string, string>
 }

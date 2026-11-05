@@ -1,4 +1,11 @@
-import type { Application, EventsResponse, Facts, Status } from './types'
+import type {
+  Application,
+  EventsResponse,
+  Facts,
+  Status,
+  Targets,
+  TargetsUpdate,
+} from './types'
 
 /** An error answer from the demo's API. */
 export class ApiError extends Error {
@@ -11,17 +18,29 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: 'GET' | 'POST', path: string): Promise<T> {
-  const res = await fetch(`/api${path}`, { method })
-  const body: unknown = await res.json().catch(() => null)
+async function request<T>(
+  method: 'GET' | 'POST' | 'PUT',
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    method,
+    ...(body === undefined
+      ? {}
+      : {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
+  })
+  const answer: unknown = await res.json().catch(() => null)
   if (!res.ok) {
     const message =
-      body && typeof body === 'object' && 'error' in body
-        ? String((body as { error: unknown }).error)
+      answer && typeof answer === 'object' && 'error' in answer
+        ? String((answer as { error: unknown }).error)
         : res.statusText
     throw new ApiError(message || `HTTP ${res.status}`, res.status)
   }
-  return body as T
+  return answer as T
 }
 
 const step = (name: string) => (id: string) =>
@@ -29,6 +48,9 @@ const step = (name: string) => (id: string) =>
 
 export const api = {
   getStatus: () => request<Status>('GET', '/status'),
+  getTargets: () => request<Targets>('GET', '/targets'),
+  setTargets: (update: TargetsUpdate) =>
+    request<Targets>('PUT', '/targets', update),
   getEvents: (since: number) =>
     request<EventsResponse>('GET', `/events?since=${since}`),
   reset: () => request<Facts>('POST', '/reset'),

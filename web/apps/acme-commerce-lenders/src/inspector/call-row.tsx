@@ -11,6 +11,12 @@ const vendorNames: Record<string, string> = {
   xero: 'Xero',
 }
 
+const sourceName: Record<WireEvent['source'], string> = {
+  localstack: 'LocalStack',
+  local: 'Local',
+  service: 'Vendor service',
+}
+
 export const vendorName = (vendor: string) => vendorNames[vendor] ?? vendor
 
 function ms(ns: number) {
@@ -44,7 +50,8 @@ function Body({ title, body }: { title: string; body: WireBody }) {
 /** One call to a vendor: what it was for, then the call, then its bodies. */
 export function CallRow({ event }: { event: WireEvent }) {
   const [open, setOpen] = useState(false)
-  const failed = event.error !== undefined || event.status >= 400
+  const blocked = event.origin === 'blocked'
+  const failed = !blocked && (event.error !== undefined || event.status >= 400)
   const when = new Date(event.time).toLocaleTimeString()
 
   return (
@@ -64,15 +71,16 @@ export function CallRow({ event }: { event: WireEvent }) {
         <div className="min-w-0 flex-1">
           <div className="font-medium">{caption(event)}</div>
           <div className="truncate font-mono text-xs text-muted-foreground">
-            {event.method} {event.path}
+            {event.method} {event.upstream ?? ''}
+            {event.path}
           </div>
         </div>
         <Badge variant="default">{vendorName(event.vendor)}</Badge>
-        <Badge variant="info">
-          {event.source === 'localstack' ? 'LocalStack' : 'Local'}
+        <Badge variant={blocked ? 'destructive' : 'info'}>
+          {blocked ? 'Dry run, not sent' : sourceName[event.source]}
         </Badge>
         <Badge variant={failed ? 'destructive' : 'success'}>
-          {event.error ? 'No answer' : event.status}
+          {blocked ? 'Not sent' : event.error ? 'No answer' : event.status}
         </Badge>
         <span className="w-16 text-right text-xs text-muted-foreground">
           {ms(event.duration_ns)}

@@ -25,6 +25,7 @@ function event(id: number, over: Partial<WireEvent> = {}): WireEvent {
     time: '2026-11-04T10:00:00Z',
     vendor: 'stripe',
     source: 'localstack',
+    origin: 'emulator',
     method: 'GET',
     path: '/v1/charges?limit=100',
     status: 200,
@@ -78,6 +79,25 @@ describe('InspectorPage', () => {
     expect(within(rows[0]).getByText('Local')).toBeTruthy()
     expect(within(rows[1]).getByText(/card sales from Stripe/)).toBeTruthy()
     expect(within(rows[1]).getByText('LocalStack')).toBeTruthy()
+  })
+
+  it('marks a dry-run call as not sent, with the host it was built for', async () => {
+    mocks.getEvents.mockResolvedValue(
+      answer([
+        event(1, {
+          source: 'service',
+          origin: 'blocked',
+          upstream: 'https://api.stripe.com',
+          status: 503,
+          error: 'dry run: this GET /v1/charges was built and not sent',
+        }),
+      ]),
+    )
+    render(<InspectorPage />)
+    const row = (await screen.findAllByTestId('call'))[0]
+    expect(within(row).getByText('Dry run, not sent')).toBeTruthy()
+    expect(within(row).getByText('Not sent')).toBeTruthy()
+    expect(within(row).getByText(/https:\/\/api\.stripe\.com/)).toBeTruthy()
   })
 
   it('asks only for what is new, and adds it to the list', async () => {

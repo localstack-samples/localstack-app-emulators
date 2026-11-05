@@ -1,5 +1,6 @@
 import logo from '@localstack-app-emulators/brand/logo/localstack-logo-horizontal-light.svg'
 import { Eye, Info, RotateCcw } from 'lucide-react'
+import { DemoSwitcher } from '@/components/demo-switcher'
 import { Button, buttonVariants } from '@/components/ui/button'
 
 export function Header({
@@ -27,6 +28,7 @@ export function Header({
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <DemoSwitcher current="acme-commerce-lenders" />
         <a
           href="/inspector"
           target="_blank"

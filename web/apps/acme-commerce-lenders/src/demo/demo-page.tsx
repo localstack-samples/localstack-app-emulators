@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { statusQueries } from '@/api/queries'
+import { statusQueries, targetQueries } from '@/api/queries'
 import { FundingCard } from '@/components/funding-card'
 import { Header } from '@/components/header'
+import { ModeBanner } from '@/components/mode-banner'
 import { OfferCard } from '@/components/offer-card'
 import { Readiness } from '@/components/readiness'
 import { StepList } from '@/components/step-list'
@@ -15,7 +16,12 @@ import { acceptSteps, applySteps, useDemoFlow } from './use-demo-flow'
 export function DemoPage() {
   const flow = useDemoFlow()
   const status = useQuery(statusQueries.current())
-  const ready = status.data?.ready === true
+  const targets = useQuery(targetQueries.current())
+  const production = targets.data?.mode === 'production'
+  const badUrl = targets.data?.lanes.some((l) => l.error) === true
+  // In production mode the app emulators and the seeded world are not what the
+  // run reads, so only a URL that cannot be called holds it back.
+  const ready = production ? !badUrl : status.data?.ready === true
   const merchant = status.data?.facts?.merchant ?? 'The merchant'
 
   const app = flow.application
@@ -28,6 +34,7 @@ export function DemoPage() {
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8">
       <Header onReset={flow.reset} busy={flow.busy} />
+      <ModeBanner />
 
       {flow.resetError && (
         <Card role="alert">
@@ -35,7 +42,7 @@ export function DemoPage() {
         </Card>
       )}
 
-      <Readiness />
+      {!production && <Readiness />}
 
       <Card>
         <CardTitle>{merchant}</CardTitle>
@@ -61,7 +68,9 @@ export function DemoPage() {
             </Button>
             {!ready && (
               <span className="text-sm text-muted-foreground">
-                Waiting for the app emulators and the seeded world.
+                {badUrl
+                  ? 'Fix the base URL above to run the demo.'
+                  : 'Waiting for the app emulators and the seeded world.'}
               </span>
             )}
           </div>

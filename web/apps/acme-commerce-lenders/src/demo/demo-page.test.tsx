@@ -7,6 +7,7 @@ import { DemoPage } from './demo-page'
 
 const mocks = vi.hoisted(() => ({
   getStatus: vi.fn(),
+  getTargets: vi.fn(),
   reset: vi.fn(),
   apply: vi.fn(),
   connect: vi.fn(),
@@ -364,5 +365,57 @@ describe('DemoPage', () => {
     expect(
       await screen.findByText(/Reset failed: reset failed for plaid/),
     ).toBeInTheDocument()
+  })
+})
+
+describe('DemoPage in production mode', () => {
+  const lanes = (error?: string) => [
+    {
+      vendor: 'stripe',
+      name: 'Stripe',
+      url: error ? 'stripe' : 'https://api.stripe.com',
+      emulator_url: 'http://stripe.emulator',
+      service_url: 'https://api.stripe.com',
+      service: true,
+      ...(error ? { error } : {}),
+    },
+  ]
+
+  it('lets Apply run without the app emulators ready, because they are not what it reads', async () => {
+    mocks.getStatus.mockResolvedValue({
+      ...readyStatus,
+      ready: false,
+      seeded: false,
+    })
+    mocks.getTargets.mockResolvedValue({
+      mode: 'production',
+      style: 'dry',
+      lanes: lanes(),
+    })
+    renderPage()
+    const apply = await screen.findByRole('button', {
+      name: 'Apply for working capital',
+    })
+    await waitFor(() => expect(apply).toBeEnabled())
+    expect(screen.queryByTestId('emulator-stripe')).not.toBeInTheDocument()
+  })
+
+  it('holds Apply back, and says to fix the URL, when a base URL cannot be called', async () => {
+    mocks.getTargets.mockResolvedValue({
+      mode: 'production',
+      style: 'dry',
+      lanes: lanes('"stripe" is not a URL the demo can call.'),
+    })
+    renderPage()
+    expect(
+      await screen.findByText('Fix the base URL above to run the demo.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Apply for working capital' }),
+    ).toBeDisabled()
+    expect(
+      screen.getByText('Fix the base URL above to run the demo.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('is not a URL')
   })
 })
