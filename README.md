@@ -1,6 +1,6 @@
-# LocalStack for SaaS Apps
+# LocalStack for SaaS Applications
 
-Demos of LocalStack for SaaS Apps. It lets you build and test against the third-party APIs your application depends on, such as Stripe, Plaid and Xero, using app emulators that run locally. An app emulator is a local stand-in for a third-party API, so you need no vendor sandbox and no real account.
+Demos of LocalStack for SaaS Applications. It lets you build and test against the third-party APIs your application depends on, such as Stripe, Plaid and Xero, using app emulators that run locally. An app emulator is a local stand-in for a third-party API, so you need no vendor sandbox and no real account.
 
 ## Demos
 

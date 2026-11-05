@@ -172,7 +172,7 @@ This needs a Xero app emulator that can create accounts and bank transactions, w
 
 ### The inspector
 
-The demo's header has an **Open inspector** button, which opens <http://127.0.0.1:8080/inspector> in a second tab. Put it beside the demo to show what the lender asks Stripe, Plaid and Xero as each step runs.
+The demo's header has an **Open Demo Inspector** button, which opens <http://127.0.0.1:8080/inspector> in a second tab. Put it beside the demo to show what the lender asks Stripe, Plaid and Xero as each step runs.
 
 Each call is one row, newest first:
 

@@ -25,10 +25,10 @@ export function InspectorPage() {
           <div className="h-8 w-px bg-border" />
           <div>
             <h1 className="font-heading text-xl font-bold leading-tight">
-              Inspector
+              Demo Inspector
             </h1>
             <p className="text-sm text-muted-foreground">
-              Every call ACME Commerce Lenders makes to Stripe, Plaid and Xero
+              ACME Commerce Lenders
             </p>
           </div>
         </div>
