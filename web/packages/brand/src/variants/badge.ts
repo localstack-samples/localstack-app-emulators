@@ -12,6 +12,8 @@ export const badgeVariants = cva(
         success: 'bg-primary/15 text-primary',
         // Informational: which system served a call.
         info: 'bg-accent/25 text-foreground',
+        // Not wrong, but not the usual case: a dry run, production mode.
+        warning: 'bg-warning/15 text-warning',
         // Wrong: failed, declined.
         destructive: 'bg-destructive/15 text-destructive',
       },

@@ -36,6 +36,9 @@
   --destructive: var(--ls-danger);
   --destructive-foreground: var(--ls-navy-start);
 
+  --warning: var(--ls-warning);
+  --warning-foreground: var(--ls-navy-start);
+
   --border: color-mix(in oklab, white 14%, transparent);
   --input: color-mix(in oklab, white 18%, transparent);
   --ring: var(--ls-mint);
