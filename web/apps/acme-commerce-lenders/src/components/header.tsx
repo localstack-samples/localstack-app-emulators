@@ -62,7 +62,9 @@ function ScenarioInfo() {
         role="tooltip"
         className="invisible absolute left-0 top-full z-10 mt-2 w-96 rounded-lg border bg-popover p-4 text-sm text-popover-foreground opacity-0 shadow-lg transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
       >
-        <p className="font-medium">A working-capital advance, from application to the books</p>
+        <p className="font-medium">
+          A working-capital advance, from application to the books
+        </p>
         <p className="mt-2 text-popover-foreground/80">
           ACME Commerce Lenders is a fictional lender. Harbor &amp; Pine
           Outfitters, an online outdoor-gear merchant, applies. The lender has
