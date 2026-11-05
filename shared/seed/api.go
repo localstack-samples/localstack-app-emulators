@@ -36,6 +36,15 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
+	// The wire proxy answers for a call it did not send, or could not make,
+	// with the reason in "detail". That reason is the message.
+	var w struct {
+		Error  string `json:"error"`
+		Detail string `json:"detail"`
+	}
+	if json.Unmarshal([]byte(e.Body), &w) == nil && strings.HasPrefix(w.Error, "wire: ") && w.Detail != "" {
+		return w.Detail
+	}
 	return fmt.Sprintf("%s %s %s: HTTP %d: %s", e.Vendor, e.Method, e.Path, e.Status, e.Body)
 }
 
