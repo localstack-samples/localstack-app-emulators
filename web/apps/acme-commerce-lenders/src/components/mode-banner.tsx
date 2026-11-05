@@ -33,10 +33,10 @@ export function ModeBanner() {
       )}
     >
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <span
             className={cn(
-              'flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold',
+              'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1 text-sm font-bold',
               production
                 ? 'bg-warning text-warning-foreground'
                 : 'bg-primary text-primary-foreground',
