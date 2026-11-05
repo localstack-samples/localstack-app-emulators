@@ -1,11 +1,9 @@
 // Package core is the lender logic: apply, ingest, offer, accept, fund and
-// settle. It depends only on the interfaces below, so the same code runs in two
-// places:
+// settle. It depends only on the interfaces below, so the storage and the event
+// delivery can change without touching it: the kit uses a file or in-memory
+// Store and in-process events.
 //
-//   - the offline kit, with a file or in-memory Store and in-process events;
-//   - LocalStack mode, inside Lambda handlers, with DynamoDB and a queue.
-//
-// Keep AWS and HTTP-server types out of this package.
+// Keep HTTP-server types out of this package.
 package core
 
 import (
