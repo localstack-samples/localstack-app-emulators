@@ -17,11 +17,10 @@ export function DemoPage() {
   const flow = useDemoFlow()
   const status = useQuery(statusQueries.current())
   const targets = useQuery(targetQueries.current())
-  const production = targets.data?.mode === 'production'
   const badUrl = targets.data?.lanes.some((l) => l.error) === true
-  // In production mode the app emulators and the seeded world are not what the
-  // run reads, so only a URL that cannot be called holds it back.
-  const ready = production ? !badUrl : status.data?.ready === true
+  // The app emulators answer in both modes, so the run needs them either way. A
+  // URL that cannot be used holds it back too.
+  const ready = status.data?.ready === true && !badUrl
   const merchant = status.data?.facts?.merchant ?? 'The merchant'
 
   const app = flow.application
@@ -42,7 +41,7 @@ export function DemoPage() {
         </Card>
       )}
 
-      {!production && <Readiness />}
+      <Readiness />
 
       <Card>
         <CardTitle>{merchant}</CardTitle>

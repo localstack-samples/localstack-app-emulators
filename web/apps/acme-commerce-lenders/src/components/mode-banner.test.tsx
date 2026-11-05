@@ -24,7 +24,6 @@ const lane = (vendor: string, name: string, url: string, service = false) => ({
 
 const demo: Targets = {
   mode: 'demo',
-  style: 'dry',
   lanes: [
     lane('stripe', 'Stripe', 'http://stripe.emulator'),
     lane('xero', 'Xero', 'http://xero.emulator'),
@@ -33,7 +32,6 @@ const demo: Targets = {
 
 const production: Targets = {
   mode: 'production',
-  style: 'dry',
   lanes: [
     lane('stripe', 'Stripe', 'https://api.stripe.com', true),
     lane('xero', 'Xero', 'http://xero.emulator'),
@@ -63,23 +61,18 @@ describe('ModeBanner', () => {
     expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
   })
 
-  it('says Production Mode, with the run style, when a vendor is at its service', async () => {
+  it('says Production Mode as a warning, and that nothing is sent', async () => {
     mocks.getTargets.mockResolvedValue(production)
     renderBanner()
     expect(await screen.findByText('Production Mode')).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: 'Dry run' })).toBeChecked()
-    expect(screen.getByRole('status')).toHaveTextContent(/nothing is sent/i)
-  })
-
-  it('switches to Live and says requests are sent without a credential', async () => {
-    mocks.getTargets.mockResolvedValue(production)
-    mocks.setTargets.mockResolvedValue({ ...production, style: 'live' })
-    renderBanner()
-    await userEvent.click(await screen.findByRole('radio', { name: 'Live' }))
-    expect(mocks.setTargets).toHaveBeenCalledWith({ style: 'live' })
-    await waitFor(() =>
-      expect(screen.getByRole('status')).toHaveTextContent(/no credential/i),
+    expect(screen.getByRole('region', { name: 'Mode' })).toHaveTextContent(
+      /nothing is sent/i,
     )
+    expect(screen.getByRole('region', { name: 'Mode' })).toHaveAttribute(
+      'data-mode',
+      'production',
+    )
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument()
   })
 
   it('cannot be dismissed', async () => {
@@ -98,14 +91,14 @@ describe('ModeBanner', () => {
         {
           ...production.lanes[0],
           url: 'stripe',
-          error: '"stripe" is not a URL the demo can call.',
+          error: '"stripe" is not a URL the demo can use.',
         },
         production.lanes[1],
       ],
     })
     renderBanner()
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Stripe: "stripe" is not a URL the demo can call.',
+      'Stripe: "stripe" is not a URL the demo can use.',
     )
   })
 })

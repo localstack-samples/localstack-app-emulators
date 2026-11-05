@@ -29,7 +29,7 @@ export function TargetsDialog({
   })
 
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/70 p-6">
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-background/85 p-6">
       <div
         role="dialog"
         aria-modal="true"
@@ -42,8 +42,10 @@ export function TargetsDialog({
               Base URLs
             </h2>
             <p className="text-sm text-popover-foreground/80">
-              The lender calls each vendor at the URL below. Change it and the
-              next call goes there. Nothing else in the app changes.
+              Point a vendor at its own service’s URL to see that only the base
+              URL changes. The demo holds no vendor credentials, so nothing is
+              sent there: the app emulator still answers, and the inspector
+              shows where each call would have gone.
             </p>
           </div>
           <Button

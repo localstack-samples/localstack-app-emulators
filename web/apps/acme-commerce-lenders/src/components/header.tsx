@@ -17,9 +17,10 @@ export function Header({
         <div className="h-8 w-px bg-border" />
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-heading text-xl font-bold leading-tight">
-              Demo: ACME Commerce Lenders
-            </h1>
+            <DemoSwitcher
+              current="acme-commerce-lenders"
+              title="Demo: ACME Commerce Lenders"
+            />
             <ScenarioInfo />
           </div>
           <p className="text-sm text-muted-foreground">
@@ -28,7 +29,6 @@ export function Header({
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <DemoSwitcher current="acme-commerce-lenders" />
         <a
           href="/inspector"
           target="_blank"

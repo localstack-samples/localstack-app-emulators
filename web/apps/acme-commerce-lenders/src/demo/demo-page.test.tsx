@@ -381,30 +381,20 @@ describe('DemoPage in production mode', () => {
     },
   ]
 
-  it('lets Apply run without the app emulators ready, because they are not what it reads', async () => {
-    mocks.getStatus.mockResolvedValue({
-      ...readyStatus,
-      ready: false,
-      seeded: false,
-    })
-    mocks.getTargets.mockResolvedValue({
-      mode: 'production',
-      style: 'dry',
-      lanes: lanes(),
-    })
+  it('shows the app emulators, which still answer in production mode', async () => {
+    mocks.getTargets.mockResolvedValue({ mode: 'production', lanes: lanes() })
     renderPage()
+    expect(await screen.findByTestId('emulator-stripe')).toBeInTheDocument()
     const apply = await screen.findByRole('button', {
       name: 'Apply for working capital',
     })
     await waitFor(() => expect(apply).toBeEnabled())
-    expect(screen.queryByTestId('emulator-stripe')).not.toBeInTheDocument()
   })
 
   it('holds Apply back, and says to fix the URL, when a base URL cannot be called', async () => {
     mocks.getTargets.mockResolvedValue({
       mode: 'production',
-      style: 'dry',
-      lanes: lanes('"stripe" is not a URL the demo can call.'),
+      lanes: lanes('"stripe" is not a URL the demo can use.'),
     })
     renderPage()
     expect(

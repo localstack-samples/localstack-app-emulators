@@ -81,23 +81,17 @@ describe('InspectorPage', () => {
     expect(within(rows[1]).getByText('LocalStack')).toBeTruthy()
   })
 
-  it('marks a dry-run call as not sent, with the host it was built for', async () => {
+  it('tags a call that a dry run would have sent elsewhere, with where it would go', async () => {
     mocks.getEvents.mockResolvedValue(
-      answer([
-        event(1, {
-          source: 'service',
-          origin: 'blocked',
-          upstream: 'https://api.stripe.com',
-          status: 503,
-          error: 'dry run: this GET /v1/charges was built and not sent',
-        }),
-      ]),
+      answer([event(1, { would_send_to: 'https://api.stripe.com' })]),
     )
     render(<InspectorPage />)
     const row = (await screen.findAllByTestId('call'))[0]
-    expect(within(row).getByText('Dry run, not sent')).toBeTruthy()
-    expect(within(row).getByText('Not sent')).toBeTruthy()
-    expect(within(row).getByText(/https:\/\/api\.stripe\.com/)).toBeTruthy()
+    expect(
+      within(row).getByText(/Dry run: would go to https:\/\/api\.stripe\.com/),
+    ).toBeTruthy()
+    // The app emulator answered it, so it is a normal 200 and not a failure.
+    expect(within(row).getByText('200')).toBeTruthy()
   })
 
   it('asks only for what is new, and adds it to the list', async () => {

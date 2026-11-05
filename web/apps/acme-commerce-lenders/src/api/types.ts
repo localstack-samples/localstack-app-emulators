@@ -105,11 +105,12 @@ export interface WireEvent {
   id: number
   time: string
   vendor: string
-  source: 'localstack' | 'local' | 'service'
-  /** Who produced the response. `blocked` is a dry run: built, not sent. */
-  origin: 'emulator' | 'vendor' | 'blocked'
-  /** The base URL the call was addressed to. */
-  upstream?: string
+  source: 'localstack' | 'local'
+  /** Who produced the response. */
+  origin: 'emulator' | 'vendor'
+  /** Set when the demo was pointed at the vendor's own URL: where the call
+   * would have gone. The app emulator answered it, and nothing was sent. */
+  would_send_to?: string
   method: string
   path: string
   status: number
@@ -126,8 +127,6 @@ export interface EventsResponse {
   generation: number
 }
 
-export type RunStyle = 'dry' | 'live'
-
 /** One vendor, as the switch holds it. */
 export interface Lane {
   vendor: string
@@ -137,17 +136,15 @@ export interface Lane {
   service_url: string
   /** The URL is not the app emulator's. */
   service: boolean
-  /** Why the URL cannot be called. */
+  /** Why the URL cannot be used. */
   error?: string
 }
 
 export interface Targets {
   mode: 'demo' | 'production'
-  style: RunStyle
   lanes: Lane[]
 }
 
 export interface TargetsUpdate {
-  style?: RunStyle
-  urls?: Record<string, string>
+  urls: Record<string, string>
 }
