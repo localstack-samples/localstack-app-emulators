@@ -30,6 +30,16 @@ func TargetsFromEnv(getenv func(string) string) Targets {
 	}
 }
 
+// Lanes are the three vendors as a wire.Switch can point them: at the app
+// emulator the targets name, or at the vendor's own service.
+func (t Targets) Lanes() []wire.Lane {
+	return []wire.Lane{
+		{Vendor: "stripe", Name: "Stripe", Emulator: t.Stripe, ServiceURL: "https://api.stripe.com"},
+		{Vendor: "plaid", Name: "Plaid", Emulator: t.Plaid, ServiceURL: "https://production.plaid.com"},
+		{Vendor: "xero", Name: "Xero", Emulator: t.Xero, ServiceURL: "https://api.xero.com"},
+	}
+}
+
 // All lists the targets in a fixed order.
 func (t Targets) All() []wire.Target { return []wire.Target{t.Stripe, t.Plaid, t.Xero} }
 

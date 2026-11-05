@@ -24,6 +24,18 @@ func NewVendors(rec *wire.Recorder, tg world.Targets) Vendors {
 	return Vendors{Stripe: apiFor(rec, tg.Stripe), Plaid: apiFor(rec, tg.Plaid), Xero: apiFor(rec, tg.Xero)}
 }
 
+// NewSwitchedVendors is NewVendors for targets that can change while the demo
+// runs. Each call asks sw where its vendor is now.
+func NewSwitchedVendors(rec *wire.Recorder, sw *wire.Switch) Vendors {
+	lane := func(vendor string) seed.API {
+		return seed.API{
+			HC:     wire.NewSwitchedProxy(func() wire.Target { return sw.Target(vendor) }, rec).Client(),
+			Target: wire.Target{Vendor: vendor, Upstream: "http://wire.invalid"},
+		}
+	}
+	return Vendors{Stripe: lane("stripe"), Plaid: lane("plaid"), Xero: lane("xero")}
+}
+
 // apiFor returns a client whose calls the proxy records and forwards to t. The
 // URL host is a placeholder, because the proxy uses its own target.
 func apiFor(rec *wire.Recorder, t wire.Target) seed.API {

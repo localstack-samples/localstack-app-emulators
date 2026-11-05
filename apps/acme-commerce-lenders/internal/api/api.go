@@ -44,8 +44,18 @@ type Status struct {
 
 // New returns the API handler, to be mounted at /api/.
 func New(apps Applications, admin Admin, rec *wire.Recorder) http.Handler {
-	h := &handler{apps: apps, admin: admin, rec: rec}
+	return NewWithTargets(apps, admin, rec, nil)
+}
+
+// NewWithTargets is New with the routes that read and change where each vendor's
+// calls go. A nil sw leaves those routes out.
+func NewWithTargets(apps Applications, admin Admin, rec *wire.Recorder, sw *wire.Switch) http.Handler {
+	h := &handler{apps: apps, admin: admin, rec: rec, sw: sw}
 	mux := http.NewServeMux()
+	if sw != nil {
+		mux.HandleFunc("GET /api/targets", h.targets)
+		mux.HandleFunc("PUT /api/targets", h.setTargets)
+	}
 	mux.HandleFunc("GET /api/status", h.status)
 	mux.HandleFunc("POST /api/reset", h.reset)
 	mux.HandleFunc("POST /api/applications", h.apply)
@@ -67,6 +77,7 @@ type handler struct {
 	apps  Applications
 	admin Admin
 	rec   *wire.Recorder
+	sw    *wire.Switch
 	// A reset wipes everything the other calls read, so it waits for them and
 	// they wait for it.
 	mu sync.RWMutex
@@ -135,6 +146,28 @@ func (h *handler) events(w http.ResponseWriter, r *http.Request) {
 		last = evs[len(evs)-1].ID
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"events": evs, "last": last, "generation": h.rec.Generation()})
+}
+
+// targets says where each vendor's calls go now, and whether the demo is in
+// demo mode (every vendor at its app emulator) or production mode.
+func (h *handler) targets(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, h.sw.State())
+}
+
+// setTargets changes the run style or any vendor's base URL. A URL that cannot
+// be called is accepted and reported in the state, so the UI can say why a run
+// will fail before it starts.
+func (h *handler) setTargets(w http.ResponseWriter, r *http.Request) {
+	var u wire.Update
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&u); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("the body must be JSON like {\"urls\":{\"stripe\":\"https://api.stripe.com\"},\"style\":\"dry\"}"))
+		return
+	}
+	if err := h.sw.Apply(u); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, h.sw.State())
 }
 
 // statusFor maps an error to an HTTP status. A failure the lender could not

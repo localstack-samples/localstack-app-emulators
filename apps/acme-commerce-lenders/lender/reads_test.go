@@ -390,3 +390,44 @@ func TestParseXeroDate(t *testing.T) {
 		t.Error("an unrecognised date must be an error")
 	}
 }
+
+func TestSwitchedVendorsFollowTheSwitchWithoutARestart(t *testing.T) {
+	f := newFakeVendors(t)
+	rec := wire.NewRecorder(10)
+	sw := wire.NewSwitch(
+		wire.Lane{Vendor: "stripe", Name: "Stripe", Emulator: wire.Direct("stripe", f.srv.URL), ServiceURL: "https://api.stripe.com"},
+		wire.Lane{Vendor: "plaid", Name: "Plaid", Emulator: wire.Direct("plaid", f.srv.URL), ServiceURL: "https://production.plaid.com"},
+		wire.Lane{Vendor: "xero", Name: "Xero", Emulator: wire.Direct("xero", f.srv.URL), ServiceURL: "https://api.xero.com"},
+	)
+	v := NewSwitchedVendors(rec, sw)
+	ctx := context.Background()
+
+	if _, err := v.connectXero(ctx, facts()); err != nil {
+		t.Fatalf("at the emulator: %v", err)
+	}
+
+	// Pointed at Xero's own service in a dry run, nothing is sent.
+	if err := sw.Apply(wire.Update{URLs: map[string]string{"xero": "https://api.xero.com"}}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := v.connectXero(ctx, facts())
+	if err == nil || !strings.Contains(err.Error(), "dry run") {
+		t.Fatalf("a dry run call: %v", err)
+	}
+	last := rec.Events()[len(rec.Events())-1]
+	if last.Origin != wire.OriginBlocked || last.Upstream != "https://api.xero.com" {
+		t.Fatalf("recorded %+v", last)
+	}
+
+	// An invalid URL fails with a message that says what to do.
+	_ = sw.Apply(wire.Update{URLs: map[string]string{"xero": "xero"}})
+	if _, err := v.connectXero(ctx, facts()); err == nil || !strings.Contains(err.Error(), "Use emulator") {
+		t.Fatalf("an invalid URL: %v", err)
+	}
+
+	// Back at the emulator, it works again.
+	_ = sw.Apply(wire.Update{URLs: map[string]string{"xero": f.srv.URL}})
+	if _, err := v.connectXero(ctx, facts()); err != nil {
+		t.Fatalf("back at the emulator: %v", err)
+	}
+}

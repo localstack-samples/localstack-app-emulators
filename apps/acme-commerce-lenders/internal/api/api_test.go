@@ -258,3 +258,42 @@ func TestWorldAdminReportsReadinessAndResetsTheRecorder(t *testing.T) {
 		t.Fatalf("after a reset the world is ready: %+v, %v", st, err)
 	}
 }
+
+func TestTargetsReportAndChangeWhereEachVendorIsCalled(t *testing.T) {
+	sw := wire.NewSwitch(
+		wire.Lane{Vendor: "stripe", Name: "Stripe", Emulator: wire.LocalStack("stripe"), ServiceURL: "https://api.stripe.com"},
+	)
+	h := NewWithTargets(&fakeApps{}, &fakeAdmin{}, wire.NewRecorder(1), sw)
+
+	get := func() wire.State {
+		rec := do(h, "GET", "/api/targets")
+		var st wire.State
+		if err := json.Unmarshal(rec.Body.Bytes(), &st); err != nil || rec.Code != 200 {
+			t.Fatalf("GET /api/targets: %d %s", rec.Code, rec.Body)
+		}
+		return st
+	}
+	put := func(body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("PUT", "/api/targets", strings.NewReader(body)))
+		return rec
+	}
+
+	if st := get(); st.Mode != wire.ModeDemo || st.Style != wire.StyleDryRun || len(st.Lanes) != 1 {
+		t.Fatalf("start: %+v", st)
+	}
+	if rec := put(`{"urls":{"stripe":"https://api.stripe.com"}}`); rec.Code != 200 {
+		t.Fatalf("PUT: %d %s", rec.Code, rec.Body)
+	}
+	if st := get(); st.Mode != wire.ModeProduction || !st.Lanes[0].Service {
+		t.Fatalf("after PUT: %+v", st)
+	}
+	if rec := put(`{"urls":{"stripe":"stripe"}}`); rec.Code != 200 || get().Lanes[0].Error == "" {
+		t.Fatalf("an invalid URL is reported in the state: %d %+v", rec.Code, get())
+	}
+	for _, body := range []string{`{"style":"yolo"}`, `{"urls":{"nope":"http://x"}}`, `not json`} {
+		if rec := put(body); rec.Code != 400 {
+			t.Errorf("PUT %s: %d, want 400", body, rec.Code)
+		}
+	}
+}
