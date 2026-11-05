@@ -20,15 +20,7 @@ export function InspectorPage() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8">
-      <AppHeader
-        view="inspector"
-        subtitle="ACME Commerce Lenders"
-        title={
-          <h1 className="font-heading text-xl font-bold leading-tight">
-            Demo Inspector
-          </h1>
-        }
-      />
+      <AppHeader view="inspector" />
       <ModeBanner />
 
       {error && (

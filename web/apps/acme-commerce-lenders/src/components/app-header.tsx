@@ -2,6 +2,8 @@ import logo from '@localstack-app-emulators/brand/logo/localstack-logo-horizonta
 import { useRouter } from '@tanstack/react-router'
 import { ExternalLink } from 'lucide-react'
 import type { MouseEvent, ReactNode } from 'react'
+import { DemoSwitcher } from '@/components/demo-switcher'
+import { ScenarioInfo } from '@/components/scenario-info'
 import { cn } from '@/lib/utils'
 
 type View = 'demo' | 'inspector'
@@ -12,18 +14,15 @@ const views: { id: View; to: '/' | '/inspector'; label: string }[] = [
 ]
 
 /**
- * The header both views share: the logo and title on the left, the two views as
- * tabs, and the view's own controls on the right.
+ * The header both views share. The title is the demo's, because the tabs, not
+ * the title, say which view you are on. The logo and title are on the left, the
+ * two views are tabs, and the view's own controls are on the right.
  */
 export function AppHeader({
   view,
-  title,
-  subtitle,
   children,
 }: {
   view: View
-  title: ReactNode
-  subtitle: string
   children?: ReactNode
 }) {
   // Without a router, such as in a test, a tab is an ordinary link.
@@ -41,8 +40,16 @@ export function AppHeader({
         <img src={logo} alt="LocalStack" className="h-8" />
         <div className="h-8 w-px bg-border" />
         <div>
-          {title}
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+          <div className="flex items-center gap-2">
+            <DemoSwitcher
+              current="acme-commerce-lenders"
+              title="Demo: ACME Commerce Lenders"
+            />
+            <ScenarioInfo />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            LocalStack for SaaS Applications
+          </p>
         </div>
       </div>
       <nav aria-label="Views" className="flex items-center gap-1">

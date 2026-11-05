@@ -29,9 +29,7 @@ describe('AppHeader', () => {
   })
 
   it('offers the inspector in a new tab from the demo only', () => {
-    const { rerender } = render(
-      <AppHeader view="demo" title={<h1>Demo</h1>} subtitle="x" />,
-    )
+    const { rerender } = render(<AppHeader view="demo" />)
     const newTab = screen.getByRole('link', {
       name: 'Open Demo Inspector in a new tab',
     })
@@ -46,5 +44,17 @@ describe('AppHeader', () => {
     expect(
       screen.queryByRole('link', { name: 'Open Demo Inspector in a new tab' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('has the same title block on both views, so the tabs do the wayfinding', () => {
+    const { rerender } = render(<AppHeader view="demo" />)
+    const title = () => [
+      screen.getByRole('heading', { level: 1 }).textContent,
+      screen.getByText('LocalStack for SaaS Applications').textContent,
+    ]
+    const onDemo = title()
+    rerender(<AppHeader view="inspector" />)
+    expect(title()).toEqual(onDemo)
+    expect(onDemo[0]).toBe('Demo: ACME Commerce Lenders')
   })
 })
