@@ -1,7 +1,7 @@
-import logo from '@localstack-app-emulators/brand/logo/localstack-logo-horizontal-light.svg'
-import { Eye, Info, RotateCcw } from 'lucide-react'
+import { Info, RotateCcw } from 'lucide-react'
+import { AppHeader } from '@/components/app-header'
 import { DemoSwitcher } from '@/components/demo-switcher'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 
 export function Header({
   onReset,
@@ -11,39 +11,24 @@ export function Header({
   busy: boolean
 }) {
   return (
-    <header className="flex items-center justify-between gap-4">
-      <div className="flex items-center gap-4">
-        <img src={logo} alt="LocalStack" className="h-8" />
-        <div className="h-8 w-px bg-border" />
-        <div>
-          <div className="flex items-center gap-2">
-            <DemoSwitcher
-              current="acme-commerce-lenders"
-              title="Demo: ACME Commerce Lenders"
-            />
-            <ScenarioInfo />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            LocalStack for SaaS Applications
-          </p>
+    <AppHeader
+      view="demo"
+      subtitle="LocalStack for SaaS Applications"
+      title={
+        <div className="flex items-center gap-2">
+          <DemoSwitcher
+            current="acme-commerce-lenders"
+            title="Demo: ACME Commerce Lenders"
+          />
+          <ScenarioInfo />
         </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <a
-          href="/inspector"
-          target="_blank"
-          rel="noreferrer"
-          className={buttonVariants({ variant: 'outline' })}
-        >
-          <Eye />
-          Open Demo Inspector
-        </a>
-        <Button variant="outline" onClick={onReset} disabled={busy}>
-          <RotateCcw />
-          Reset
-        </Button>
-      </div>
-    </header>
+      }
+    >
+      <Button variant="outline" onClick={onReset} disabled={busy}>
+        <RotateCcw />
+        Reset
+      </Button>
+    </AppHeader>
   )
 }
 

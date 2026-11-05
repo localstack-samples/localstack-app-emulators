@@ -8,13 +8,14 @@ import { Readiness } from '@/components/readiness'
 import { StepList } from '@/components/step-list'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
-import { acceptSteps, applySteps, useDemoFlow } from './use-demo-flow'
+import { useFlow } from './flow-context'
+import { acceptSteps, applySteps } from './use-demo-flow'
 
 /**
  * The demo, in two clicks: apply, then accept. Reset puts it back at the start.
  */
 export function DemoPage() {
-  const flow = useDemoFlow()
+  const flow = useFlow()
   const status = useQuery(statusQueries.current())
   const targets = useQuery(targetQueries.current())
   const badUrl = targets.data?.lanes.some((l) => l.error) === true

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Application, Offer, Status } from '@/api/types'
 import { DemoPage } from './demo-page'
+import { FlowProvider } from './flow-context'
 
 const mocks = vi.hoisted(() => ({
   getStatus: vi.fn(),
@@ -101,7 +102,9 @@ function renderPage() {
   })
   return render(
     <QueryClientProvider client={client}>
-      <DemoPage />
+      <FlowProvider>
+        <DemoPage />
+      </FlowProvider>
     </QueryClientProvider>,
   )
 }

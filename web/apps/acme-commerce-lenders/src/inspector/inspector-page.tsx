@@ -1,6 +1,7 @@
-import logo from '@localstack-app-emulators/brand/logo/localstack-logo-horizontal-light.svg'
 import { useState } from 'react'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { AppHeader } from '@/components/app-header'
+import { ModeBanner } from '@/components/mode-banner'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { CallRow, vendorName } from './call-row'
 import { useEvents } from './use-events'
@@ -19,23 +20,16 @@ export function InspectorPage() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8">
-      <header className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <img src={logo} alt="LocalStack" className="h-8" />
-          <div className="h-8 w-px bg-border" />
-          <div>
-            <h1 className="font-heading text-xl font-bold leading-tight">
-              Demo Inspector
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              ACME Commerce Lenders
-            </p>
-          </div>
-        </div>
-        <a href="/" className={buttonVariants({ variant: 'outline' })}>
-          Back to the demo
-        </a>
-      </header>
+      <AppHeader
+        view="inspector"
+        subtitle="ACME Commerce Lenders"
+        title={
+          <h1 className="font-heading text-xl font-bold leading-tight">
+            Demo Inspector
+          </h1>
+        }
+      />
+      <ModeBanner />
 
       {error && (
         <Card role="alert">
