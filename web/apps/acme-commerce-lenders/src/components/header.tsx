@@ -16,10 +16,10 @@ export function Header({
         <div className="h-8 w-px bg-border" />
         <div>
           <h1 className="font-heading text-xl font-bold leading-tight">
-            ACME Commerce Lenders
+            Demo: ACME Commerce Lenders
           </h1>
           <p className="text-sm text-muted-foreground">
-            LocalStack for SaaS Apps
+            LocalStack for SaaS Applications
           </p>
         </div>
       </div>

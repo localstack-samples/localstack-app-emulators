@@ -6,7 +6,7 @@ There is one scenario. It is the whole demo.
 
 ## A working-capital advance, from application to the books
 
-**For.** LocalStack DevRel and engineers showing "LocalStack for SaaS Apps", and design partners who build software on Stripe, Plaid and Xero.
+**For.** LocalStack DevRel and engineers showing "LocalStack for SaaS Applications", and design partners who build software on Stripe, Plaid and Xero.
 
 **The situation.** ACME Commerce Lenders is a fictional lender that advances working capital to ecommerce companies. Harbor & Pine Outfitters, an online outdoor-gear merchant, applies. The lender has no paperwork to read. It asks the merchant's own systems: Stripe for card sales and payouts, Plaid for the bank account, Xero for the books.
 
