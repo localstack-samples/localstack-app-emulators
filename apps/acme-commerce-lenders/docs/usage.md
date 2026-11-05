@@ -4,7 +4,7 @@ Status: In Development
 
 ## Getting started
 
-The demo runs beside LocalStack. LocalStack hosts the app emulators it includes and serves them through its gateway. You run any others yourself, and the demo calls all of them the same way. No AWS services are used.
+The demo runs beside LocalStack. LocalStack hosts the app emulators it includes and serves them through its gateway. You run any others yourself, and the demo calls all of them the same way.
 
 ### Before you start
 

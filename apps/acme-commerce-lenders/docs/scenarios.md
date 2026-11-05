@@ -20,8 +20,6 @@ There is one scenario. It is the whole demo.
 
 **What it proves.** An app that depends on three SaaS products can be built, run and shown end to end on a laptop, against app emulators that behave like the real vendors, with no vendor accounts and no sandbox quotas. Two clicks do real work across all three systems, and the seeded world is the same every run, so the demo never surprises the presenter.
 
-**What it does not show.** Repayment, and any AWS service. The demo runs beside LocalStack and uses none of its AWS emulation.
-
 ### App emulators and builds
 
 | App emulator | Served by | Build |

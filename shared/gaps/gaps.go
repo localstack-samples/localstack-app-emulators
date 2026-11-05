@@ -2,10 +2,11 @@
 // emulators it was run against.
 //
 // Coverage comes from each app emulator's twin-manifest.json, in
-// WonderTwin-AI/wondertwin, under coverage.resources_implemented. It cannot
-// come from a response's status: Stripe's app emulator answers a call it lacks
-// with a 404 that copies the real Stripe's answer for a URL that does not
-// exist, so a 404 does not say which of the two it is.
+// WonderTwin-AI/wondertwin, under coverage.resources_implemented. It does not
+// come from a response's status. An open source app emulator answers a call it
+// lacks the way the real vendor answers an unknown URL (Stripe's returns a 404
+// "Unrecognized request URL"), by design, so a 404 does not say which of the
+// two it is.
 //
 // The manifests do not share a format, so each entry is read as one of three
 // kinds and a call is matched the way its kind allows:
