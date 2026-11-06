@@ -28,7 +28,11 @@ type Event struct {
 	// ArtifactVersion say which build of it and which SDK or API version the
 	// call was written against. The last two are empty when not known. Together
 	// they make a recorded call comparable with the same call made elsewhere.
-	Origin          string        `json:"origin"`
+	Origin string `json:"origin"`
+	// WouldSend is set when the demo was pointed at the vendor's own service:
+	// the call was answered by the app emulator, and this is where it would have
+	// gone. Nothing was sent there.
+	WouldSend       string        `json:"would_send_to,omitempty"`
 	EmulatorVersion string        `json:"emulator_version,omitempty"`
 	ArtifactVersion string        `json:"artifact_version,omitempty"`
 	Method          string        `json:"method"`

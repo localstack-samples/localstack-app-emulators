@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -5,7 +6,7 @@ import type { EventsResponse, WireEvent } from '@/api/types'
 import { readable } from './call-row'
 import { InspectorPage } from './inspector-page'
 
-const mocks = vi.hoisted(() => ({ getEvents: vi.fn() }))
+const mocks = vi.hoisted(() => ({ getEvents: vi.fn(), getTargets: vi.fn() }))
 
 vi.mock('@/api/client', async () => {
   const actual =
@@ -25,6 +26,7 @@ function event(id: number, over: Partial<WireEvent> = {}): WireEvent {
     time: '2026-11-04T10:00:00Z',
     vendor: 'stripe',
     source: 'localstack',
+    origin: 'emulator',
     method: 'GET',
     path: '/v1/charges?limit=100',
     status: 200,
@@ -41,6 +43,17 @@ const answer = (
   last = events.at(-1)?.id ?? 0,
 ): EventsResponse => ({ events, last, generation })
 
+function renderPage() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={client}>
+      <InspectorPage />
+    </QueryClientProvider>,
+  )
+}
+
 // Lets the next poll run, and the state it sets settle.
 const nextPoll = () => act(() => vi.advanceTimersByTimeAsync(800))
 
@@ -48,6 +61,8 @@ describe('InspectorPage', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     mocks.getEvents.mockReset()
+    mocks.getTargets.mockReset()
+    mocks.getTargets.mockResolvedValue({ mode: 'demo', lanes: [] })
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -55,7 +70,7 @@ describe('InspectorPage', () => {
 
   it('says so when the demo has made no calls', async () => {
     mocks.getEvents.mockResolvedValue(answer([]))
-    render(<InspectorPage />)
+    renderPage()
     expect(await screen.findByText(/No calls yet/)).toBeTruthy()
   })
 
@@ -71,7 +86,7 @@ describe('InspectorPage', () => {
         }),
       ]),
     )
-    render(<InspectorPage />)
+    renderPage()
     const rows = await screen.findAllByTestId('call')
     expect(rows).toHaveLength(2)
     expect(within(rows[0]).getByText(/Recorded the advance/)).toBeTruthy()
@@ -80,11 +95,24 @@ describe('InspectorPage', () => {
     expect(within(rows[1]).getByText('LocalStack')).toBeTruthy()
   })
 
+  it('tags a call that a dry run would have sent elsewhere, with where it would go', async () => {
+    mocks.getEvents.mockResolvedValue(
+      answer([event(1, { would_send_to: 'https://api.stripe.com' })]),
+    )
+    renderPage()
+    const row = (await screen.findAllByTestId('call'))[0]
+    expect(
+      within(row).getByText(/Dry run: would go to https:\/\/api\.stripe\.com/),
+    ).toBeTruthy()
+    // The app emulator answered it, so it is a normal 200 and not a failure.
+    expect(within(row).getByText('200')).toBeTruthy()
+  })
+
   it('asks only for what is new, and adds it to the list', async () => {
     mocks.getEvents
       .mockResolvedValueOnce(answer([event(1)]))
       .mockResolvedValue(answer([event(2)]))
-    render(<InspectorPage />)
+    renderPage()
     await screen.findAllByTestId('call')
     await nextPoll()
     await waitFor(() => expect(screen.getAllByTestId('call')).toHaveLength(2))
@@ -97,7 +125,7 @@ describe('InspectorPage', () => {
       .mockResolvedValueOnce(answer([event(1), event(2)], 0))
       .mockResolvedValueOnce(answer([], 1, 2))
       .mockResolvedValue(answer([event(3)], 1))
-    render(<InspectorPage />)
+    renderPage()
     await waitFor(() => expect(screen.getAllByTestId('call')).toHaveLength(2))
     await nextPoll()
     await screen.findByText(/No calls yet/)
@@ -115,7 +143,7 @@ describe('InspectorPage', () => {
         event(2, { vendor: 'plaid', method: 'POST', path: '/auth/get' }),
       ]),
     )
-    render(<InspectorPage />)
+    renderPage()
     await screen.findAllByTestId('call')
     await user.click(screen.getByRole('button', { name: 'Plaid' }))
     const rows = screen.getAllByTestId('call')
@@ -126,7 +154,7 @@ describe('InspectorPage', () => {
   it('opens a call to show its request and response', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     mocks.getEvents.mockResolvedValue(answer([event(1)]))
-    render(<InspectorPage />)
+    renderPage()
     const row = await screen.findByTestId('call')
     expect(screen.queryByText(/"data"/)).toBeNull()
     await user.click(within(row).getByRole('button'))
@@ -144,7 +172,7 @@ describe('InspectorPage', () => {
     mocks.getEvents.mockResolvedValue(
       answer([event(1, { status: 0, error: 'connection refused' })]),
     )
-    render(<InspectorPage />)
+    renderPage()
     expect(await screen.findByText('No answer')).toBeTruthy()
   })
 
@@ -152,7 +180,7 @@ describe('InspectorPage', () => {
     mocks.getEvents
       .mockRejectedValueOnce(new Error('HTTP 502'))
       .mockResolvedValue(answer([]))
-    render(<InspectorPage />)
+    renderPage()
     expect(await screen.findByRole('alert')).toBeTruthy()
     await nextPoll()
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())

@@ -390,3 +390,44 @@ func TestParseXeroDate(t *testing.T) {
 		t.Error("an unrecognised date must be an error")
 	}
 }
+
+func TestSwitchedVendorsStayOnTheEmulatorAndRecordWhereADryRunWouldGo(t *testing.T) {
+	f := newFakeVendors(t)
+	rec := wire.NewRecorder(10)
+	sw := wire.NewSwitch(
+		wire.Lane{Vendor: "stripe", Name: "Stripe", Emulator: wire.Direct("stripe", f.srv.URL), ServiceURL: "https://api.stripe.com"},
+		wire.Lane{Vendor: "plaid", Name: "Plaid", Emulator: wire.Direct("plaid", f.srv.URL), ServiceURL: "https://production.plaid.com"},
+		wire.Lane{Vendor: "xero", Name: "Xero", Emulator: wire.Direct("xero", f.srv.URL), ServiceURL: "https://api.xero.com"},
+	)
+	v := NewSwitchedVendors(rec, sw)
+	ctx := context.Background()
+	last := func() wire.Event { evs := rec.Events(); return evs[len(evs)-1] }
+
+	if _, err := v.connectXero(ctx, facts()); err != nil || last().WouldSend != "" {
+		t.Fatalf("at the emulator: %v, %+v", err, last())
+	}
+
+	// Pointed at Xero's own service, the call is still answered by the app
+	// emulator, and the recording says where it would have gone.
+	if err := sw.Apply(map[string]string{"xero": "https://api.xero.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := v.connectXero(ctx, facts()); err != nil {
+		t.Fatalf("a dry run must still work: %v", err)
+	}
+	if got := last(); got.WouldSend != "https://api.xero.com" || got.Origin != wire.OriginEmulator || got.Status != 200 {
+		t.Fatalf("recorded %+v", got)
+	}
+
+	// An invalid URL fails with a message that says what to do.
+	_ = sw.Apply(map[string]string{"xero": "xero"})
+	if _, err := v.connectXero(ctx, facts()); err == nil || !strings.Contains(err.Error(), "Use emulator") {
+		t.Fatalf("an invalid URL: %v", err)
+	}
+
+	// Back at the emulator, nothing is recorded as a dry run.
+	_ = sw.Apply(map[string]string{"xero": f.srv.URL})
+	if _, err := v.connectXero(ctx, facts()); err != nil || last().WouldSend != "" {
+		t.Fatalf("back at the emulator: %v, %+v", err, last())
+	}
+}

@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-router'
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { FlowProvider } from '@/demo/flow-context'
 
 interface RouterContext {
   queryClient: QueryClient
@@ -20,9 +21,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootLayout() {
   return (
-    <div className="min-h-screen">
-      <Outlet />
-    </div>
+    <FlowProvider>
+      <div className="min-h-screen">
+        <Outlet />
+      </div>
+    </FlowProvider>
   )
 }
 

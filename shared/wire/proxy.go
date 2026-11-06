@@ -3,6 +3,7 @@ package wire
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -46,9 +47,27 @@ type Target struct {
 	Upstream string // base URL dialled, such as http://127.0.0.1:4566
 	Host     string // Host header sent upstream; empty keeps the proxy's own
 
+	// WouldSend is the vendor's own base URL, when the demo has been pointed at
+	// it. The call is still answered by the app emulator, and nothing is sent to
+	// WouldSend. The recorded call carries it, so the inspector can show where
+	// the call would have gone.
+	WouldSend string
+	// Invalid is why the target cannot be called, such as a base URL that does
+	// not parse. Every call fails with it, and nothing is sent.
+	Invalid string
+
 	Origin          string // OriginEmulator or OriginVendor; empty means OriginEmulator
 	EmulatorVersion string // release id of the app emulator, if known
 	ArtifactVersion string // SDK or API version the calls were written against, if known
+}
+
+// BaseURL is where the target's calls are addressed, as a person would write
+// it: the host LocalStack serves the app emulator on, or the upstream.
+func (t Target) BaseURL() string {
+	if t.Host != "" {
+		return "http://" + t.Host
+	}
+	return t.Upstream
 }
 
 // origin is Origin, with the default filled in.
@@ -94,15 +113,21 @@ func TargetFromEnv(getenv func(string) string, vendor string) Target {
 // Proxy forwards each request to a Target and records it. The whole request
 // and response are buffered, so it suits API calls and not streaming.
 type Proxy struct {
-	target Target
+	target func() Target
 	rec    *Recorder
 	client *http.Client
 }
 
 // NewProxy returns a handler that forwards to t and records into rec.
 func NewProxy(t Target, rec *Recorder) *Proxy {
+	return NewSwitchedProxy(func() Target { return t }, rec)
+}
+
+// NewSwitchedProxy is NewProxy for a target that can change between calls. It
+// asks for the target afresh on every request.
+func NewSwitchedProxy(target func() Target, rec *Recorder) *Proxy {
 	return &Proxy{
-		target: t,
+		target: target,
 		rec:    rec,
 		client: &http.Client{
 			Timeout: 60 * time.Second,
@@ -114,44 +139,50 @@ func NewProxy(t Target, rec *Recorder) *Proxy {
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
+	t := p.target()
 	ev := Event{
 		Time:            start,
-		Vendor:          p.target.Vendor,
-		Source:          p.target.Source,
-		Origin:          p.target.origin(),
-		EmulatorVersion: p.target.EmulatorVersion,
-		ArtifactVersion: p.target.ArtifactVersion,
+		Vendor:          t.Vendor,
+		Source:          t.Source,
+		Origin:          t.origin(),
+		WouldSend:       t.WouldSend,
+		EmulatorVersion: t.EmulatorVersion,
+		ArtifactVersion: t.ArtifactVersion,
 		Method:          r.Method,
 		Path:            r.URL.RequestURI(),
 	}
 
 	reqBody, err := io.ReadAll(r.Body)
 	if err != nil {
-		p.fail(w, ev, start, http.StatusBadRequest, fmt.Errorf("read request: %w", err))
+		p.fail(w, ev, t, start, http.StatusBadRequest, fmt.Errorf("read request: %w", err))
 		return
 	}
 	ev.Request = capture(r.Header.Get("Content-Type"), reqBody)
 
-	out, err := http.NewRequestWithContext(r.Context(), r.Method, p.target.Upstream+r.URL.RequestURI(), bytes.NewReader(reqBody))
+	if t.Invalid != "" {
+		p.fail(w, ev, t, start, http.StatusBadGateway, errors.New(t.Invalid))
+		return
+	}
+	out, err := http.NewRequestWithContext(r.Context(), r.Method, t.Upstream+r.URL.RequestURI(), bytes.NewReader(reqBody))
 	if err != nil {
-		p.fail(w, ev, start, http.StatusBadGateway, err)
+		p.fail(w, ev, t, start, http.StatusBadGateway, err)
 		return
 	}
 	out.Header = r.Header.Clone()
 	out.Header.Del(hopByHopConnection)
-	if p.target.Host != "" {
-		out.Host = p.target.Host
+	if t.Host != "" {
+		out.Host = t.Host
 	}
 
 	resp, err := p.client.Do(out)
 	if err != nil {
-		p.fail(w, ev, start, http.StatusBadGateway, err)
+		p.fail(w, ev, t, start, http.StatusBadGateway, fmt.Errorf("cannot reach %s at %s: %w", t.Vendor, t.BaseURL(), err))
 		return
 	}
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		p.fail(w, ev, start, http.StatusBadGateway, fmt.Errorf("read response: %w", err))
+		p.fail(w, ev, t, start, http.StatusBadGateway, fmt.Errorf("read response: %w", err))
 		return
 	}
 
@@ -173,7 +204,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // fail answers the caller with a JSON error and records the failed call.
-func (p *Proxy) fail(w http.ResponseWriter, ev Event, start time.Time, status int, err error) {
+func (p *Proxy) fail(w http.ResponseWriter, ev Event, t Target, start time.Time, status int, err error) {
 	ev.Status = status
 	ev.Duration = time.Since(start)
 	ev.Error = err.Error()
@@ -183,7 +214,7 @@ func (p *Proxy) fail(w http.ResponseWriter, ev Event, start time.Time, status in
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"error":  "wire: " + strings.ToLower(http.StatusText(status)),
-		"vendor": p.target.Vendor,
+		"vendor": t.Vendor,
 		"detail": err.Error(),
 	})
 }

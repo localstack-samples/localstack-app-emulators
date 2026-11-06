@@ -1,21 +1,27 @@
 import { useQuery } from '@tanstack/react-query'
-import { statusQueries } from '@/api/queries'
+import { statusQueries, targetQueries } from '@/api/queries'
 import { FundingCard } from '@/components/funding-card'
 import { Header } from '@/components/header'
+import { ModeBanner } from '@/components/mode-banner'
 import { OfferCard } from '@/components/offer-card'
 import { Readiness } from '@/components/readiness'
 import { StepList } from '@/components/step-list'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
-import { acceptSteps, applySteps, useDemoFlow } from './use-demo-flow'
+import { useFlow } from './flow-context'
+import { acceptSteps, applySteps } from './use-demo-flow'
 
 /**
  * The demo, in two clicks: apply, then accept. Reset puts it back at the start.
  */
 export function DemoPage() {
-  const flow = useDemoFlow()
+  const flow = useFlow()
   const status = useQuery(statusQueries.current())
-  const ready = status.data?.ready === true
+  const targets = useQuery(targetQueries.current())
+  const badUrl = targets.data?.lanes.some((l) => l.error) === true
+  // The app emulators answer in both modes, so the run needs them either way. A
+  // URL that cannot be used holds it back too.
+  const ready = status.data?.ready === true && !badUrl
   const merchant = status.data?.facts?.merchant ?? 'The merchant'
 
   const app = flow.application
@@ -28,6 +34,7 @@ export function DemoPage() {
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-8">
       <Header onReset={flow.reset} busy={flow.busy} />
+      <ModeBanner />
 
       {flow.resetError && (
         <Card role="alert">
@@ -61,7 +68,9 @@ export function DemoPage() {
             </Button>
             {!ready && (
               <span className="text-sm text-muted-foreground">
-                Waiting for the app emulators and the seeded world.
+                {badUrl
+                  ? 'Fix the base URL above to run the demo.'
+                  : 'Waiting for the app emulators and the seeded world.'}
               </span>
             )}
           </div>

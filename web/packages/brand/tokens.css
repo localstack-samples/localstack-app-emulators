@@ -36,6 +36,13 @@
    */
   --ls-danger: #ff7a8a;
 
+  /*
+   * Also not in the style guide, which has no warning color. Used only where
+   * something is not wrong but the reader should not mistake it for the usual
+   * case, such as the demo pointed at a vendor's own URL.
+   */
+  --ls-warning: #ffc857;
+
   /* Typeface: Exo, in Regular, Semibold, Bold and Extra Bold. */
   --ls-font: "Exo", system-ui, -apple-system, "Segoe UI", sans-serif;
 }

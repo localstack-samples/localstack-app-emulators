@@ -59,7 +59,7 @@ A vendor with no `<VENDOR>_EMULATOR_URL` set uses LocalStack. When your LocalSta
 
 Beside the vendor, method, path and bodies, each call the inspector shows records which app emulator answered it and at which release:
 
-- **`origin`** is who produced the response. It is `emulator` for every call the demo makes.
+- **`origin`** is who produced the response. It is `emulator` for every call the demo makes in Demo Mode. `would_send_to` is set on a call made in Production Mode: the app emulator answered it, and it is the vendor's own base URL the call would have gone to. Nothing is sent there.
 - **`emulator_version`** is the release id of the app emulator, such as `0123456789ab`. An app emulator does not announce its release, because the id is derived from the built binaries. Set `<VENDOR>_EMULATOR_VERSION` (for example `PLAID_EMULATOR_VERSION`) to the id of the release you installed, which is in its tag, `twin-<name>-v<id>`. Unset means unknown, and the field is left out.
 - **`artifact_version`** is the SDK or API version the calls were written against. The demo calls the vendors over plain HTTP and sets none, so it is left out.
 
@@ -142,6 +142,8 @@ For the seeded merchant the offer is an advance of **$30,000** for a flat 8% fee
 | `POST /api/applications` | Starts an application |
 | `POST /api/applications/{id}/connect`, `review`, `offer`, `accept`, `fund`, `settle` | The steps, which must happen in that order. A declined offer cannot be accepted. |
 | `GET /api/applications/{id}` | The application so far |
+| `GET /api/targets` | The base URL each vendor is pointed at, and the mode (`demo` or `production`) |
+| `PUT /api/targets` | Points vendors at base URLs: `{"urls":{"stripe":"https://api.stripe.com"}}`. A URL that cannot be used is reported in the state and fails the call that uses it. |
 | `GET /api/events?since=N` | Every vendor call made so far, newest after `N`, with request and response bodies. Credentials are masked. |
 
 Plaid's balance is shown with the offer but does not change it, because the Plaid app emulator's data is too thin to price against.
@@ -172,7 +174,7 @@ This needs a Xero app emulator that can create accounts and bank transactions, w
 
 ### The inspector
 
-The demo's header has an **Open Demo Inspector** button, which opens <http://127.0.0.1:8080/inspector> in a second tab. Put it beside the demo to show what the lender asks Stripe, Plaid and Xero as each step runs.
+The header has two tabs, **Demo** and **Demo Inspector**. Switching keeps the demo where it was. To show the calls as each step runs, press the arrow icon beside the tabs: it opens <http://127.0.0.1:8080/inspector> in a second browser tab, to put beside the demo.
 
 Each call is one row, newest first:
 
@@ -184,6 +186,17 @@ Each call is one row, newest first:
 The inspector shows the calls the lender makes while the demo runs. The calls that seed the world are not part of it. **Reset** clears the list, and the inspector starts again from empty, whichever tab you reset from.
 
 The binary keeps the most recent 2,000 calls. Reading a merchant's sales is paged, so one run makes dozens of calls to Stripe.
+
+## Demo Mode and Production Mode
+
+A banner under the header says which mode the demo is in. It cannot be dismissed.
+
+- **Demo Mode** is the default. Every vendor is called at its app emulator.
+- **Production Mode** starts when any vendor's base URL is changed to something other than its app emulator. Open the gear in the banner, edit a vendor's URL, or press **Use service** to fill in the vendor's own base URL (`https://api.stripe.com`, `https://production.plaid.com`, `https://api.xero.com`). **Use emulator** puts the app emulator's URL back, so a URL deleted by mistake is one click to restore.
+
+The point is to show the mechanism: the lender's code is the same in both modes and only the base URL changes. The demo holds no credential for a vendor's service, and nobody should connect one, so **nothing is ever sent to a vendor's service**. In Production Mode the demo works exactly as before. The app emulator still answers every call, and each call the inspector shows is tagged **Dry run: would go to** the vendor's URL.
+
+If a URL cannot be used, such as one that is empty or does not start with `http://` or `https://`, the banner says why and **Apply** stays disabled until it is fixed. Reset only ever wipes the app emulators.
 
 ## Reset
 

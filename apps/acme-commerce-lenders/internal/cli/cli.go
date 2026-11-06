@@ -99,10 +99,11 @@ func (a *app) handler() (http.Handler, error) {
 		return nil, err
 	}
 	rec := wire.NewRecorder(2000)
-	svc := &lender.Service{Vendors: lender.NewVendors(rec, a.targets), Store: store}
+	sw := wire.NewSwitch(a.targets.Lanes()...)
+	svc := &lender.Service{Vendors: lender.NewSwitchedVendors(rec, sw), Store: store}
 	admin := api.WorldAdmin{Targets: a.targets, HC: a.httpClient(), Store: store, Rec: rec}
 	mux := http.NewServeMux()
-	mux.Handle("/api/", api.New(svc, admin, rec))
+	mux.Handle("/api/", api.NewWithTargets(svc, admin, rec, sw))
 	mux.Handle("/", ui.Handler())
 	return mux, nil
 }

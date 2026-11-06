@@ -4,9 +4,11 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Application, Offer, Status } from '@/api/types'
 import { DemoPage } from './demo-page'
+import { FlowProvider } from './flow-context'
 
 const mocks = vi.hoisted(() => ({
   getStatus: vi.fn(),
+  getTargets: vi.fn(),
   reset: vi.fn(),
   apply: vi.fn(),
   connect: vi.fn(),
@@ -100,7 +102,9 @@ function renderPage() {
   })
   return render(
     <QueryClientProvider client={client}>
-      <DemoPage />
+      <FlowProvider>
+        <DemoPage />
+      </FlowProvider>
     </QueryClientProvider>,
   )
 }
@@ -364,5 +368,47 @@ describe('DemoPage', () => {
     expect(
       await screen.findByText(/Reset failed: reset failed for plaid/),
     ).toBeInTheDocument()
+  })
+})
+
+describe('DemoPage in production mode', () => {
+  const lanes = (error?: string) => [
+    {
+      vendor: 'stripe',
+      name: 'Stripe',
+      url: error ? 'stripe' : 'https://api.stripe.com',
+      emulator_url: 'http://stripe.emulator',
+      service_url: 'https://api.stripe.com',
+      service: true,
+      ...(error ? { error } : {}),
+    },
+  ]
+
+  it('shows the app emulators, which still answer in production mode', async () => {
+    mocks.getTargets.mockResolvedValue({ mode: 'production', lanes: lanes() })
+    renderPage()
+    expect(await screen.findByTestId('emulator-stripe')).toBeInTheDocument()
+    const apply = await screen.findByRole('button', {
+      name: 'Apply for working capital',
+    })
+    await waitFor(() => expect(apply).toBeEnabled())
+  })
+
+  it('holds Apply back, and says to fix the URL, when a base URL cannot be called', async () => {
+    mocks.getTargets.mockResolvedValue({
+      mode: 'production',
+      lanes: lanes('"stripe" is not a URL the demo can use.'),
+    })
+    renderPage()
+    expect(
+      await screen.findByText('Fix the base URL above to run the demo.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Apply for working capital' }),
+    ).toBeDisabled()
+    expect(
+      screen.getByText('Fix the base URL above to run the demo.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('is not a URL')
   })
 })

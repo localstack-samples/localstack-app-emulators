@@ -106,6 +106,11 @@ export interface WireEvent {
   time: string
   vendor: string
   source: 'localstack' | 'local'
+  /** Who produced the response. */
+  origin: 'emulator' | 'vendor'
+  /** Set when the demo was pointed at the vendor's own URL: where the call
+   * would have gone. The app emulator answered it, and nothing was sent. */
+  would_send_to?: string
   method: string
   path: string
   status: number
@@ -120,4 +125,26 @@ export interface EventsResponse {
   last: number
   /** Changes when a reset clears the recording. */
   generation: number
+}
+
+/** One vendor, as the switch holds it. */
+export interface Lane {
+  vendor: string
+  name: string
+  url: string
+  emulator_url: string
+  service_url: string
+  /** The URL is not the app emulator's. */
+  service: boolean
+  /** Why the URL cannot be used. */
+  error?: string
+}
+
+export interface Targets {
+  mode: 'demo' | 'production'
+  lanes: Lane[]
+}
+
+export interface TargetsUpdate {
+  urls: Record<string, string>
 }

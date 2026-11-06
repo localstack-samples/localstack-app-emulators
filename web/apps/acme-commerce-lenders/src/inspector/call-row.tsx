@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import type { WireBody, WireEvent } from '@/api/types'
 import { Badge } from '@/components/ui/badge'
@@ -9,6 +9,11 @@ const vendorNames: Record<string, string> = {
   stripe: 'Stripe',
   plaid: 'Plaid',
   xero: 'Xero',
+}
+
+const sourceName: Record<WireEvent['source'], string> = {
+  localstack: 'LocalStack',
+  local: 'Local',
 }
 
 export const vendorName = (vendor: string) => vendorNames[vendor] ?? vendor
@@ -66,11 +71,17 @@ export function CallRow({ event }: { event: WireEvent }) {
           <div className="truncate font-mono text-xs text-muted-foreground">
             {event.method} {event.path}
           </div>
+          {event.would_send_to && (
+            <div className="mt-1">
+              <Badge variant="warning">
+                <TriangleAlert />
+                Dry run: would go to {event.would_send_to}. Nothing was sent.
+              </Badge>
+            </div>
+          )}
         </div>
         <Badge variant="default">{vendorName(event.vendor)}</Badge>
-        <Badge variant="info">
-          {event.source === 'localstack' ? 'LocalStack' : 'Local'}
-        </Badge>
+        <Badge variant="info">{sourceName[event.source]}</Badge>
         <Badge variant={failed ? 'destructive' : 'success'}>
           {event.error ? 'No answer' : event.status}
         </Badge>

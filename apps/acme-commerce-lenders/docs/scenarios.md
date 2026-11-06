@@ -16,7 +16,7 @@ There is one scenario. It is the whole demo.
 2. **Accept the offer and fund it.** One click. The lender registers the merchant's bank account in Stripe using the numbers Plaid holds, moves the advance to the merchant's Stripe account and pays it out to their bank. It then records the advance in the merchant's Xero books as money received against a loan.
 3. **Reset.** One click puts everything back at the start, ready for the next audience.
 
-**The second tab.** Open the inspector beside the demo (see [the inspector](usage.md#the-inspector)). Each click fills it with the calls behind it, in plain language: "Read the merchant's card sales from Stripe", "Fetched the bank account and routing numbers from Plaid", "Recorded the advance in the merchant's books". Open a row to show the request and the response. The badge on each row says whether LocalStack or a process on the laptop served it.
+**The inspector.** Open it in a second browser tab beside the demo, from the arrow beside the header's tabs (see [the inspector](usage.md#the-inspector)). Each click fills it with the calls behind it, in plain language: "Read the merchant's card sales from Stripe", "Fetched the bank account and routing numbers from Plaid", "Recorded the advance in the merchant's books". Open a row to show the request and the response. The badge on each row says whether LocalStack or a process on the laptop served it.
 
 **What it proves.** An app that depends on three SaaS products can be built, run and shown end to end on a laptop, against app emulators that behave like the real vendors, with no vendor accounts and no sandbox quotas. Two clicks do real work across all three systems, and the seeded world is the same every run, so the demo never surprises the presenter.
 
