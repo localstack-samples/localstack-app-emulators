@@ -10,7 +10,7 @@ pnpm workspace for the demo UIs, set up the same way as `wondertwin-web`.
 | Path | What it holds |
 |---|---|
 | `packages/brand` | LocalStack's colors, logos, typeface and the `cva` button and badge variants, which every demo UI imports |
-| `apps/<demo>` | One demo's UI, such as `apps/acme-commerce-lenders` |
+| `demos/<demo>` | One demo's UI, such as `demos/acme-commerce-lenders` |
 
 ## Commands
 

@@ -3,10 +3,10 @@
 # Every module in the Go workspace is built, vetted and tested. In a workspace,
 # ./... from the root matches only the root module, so each module is listed.
 
-# Builds every entry point under apps/<demo>/cmd/<name> to bin/<demo>-<name>.
+# Builds every entry point under demos/<demo>/cmd/<name> to bin/<demo>-<name>.
 build:
 	mkdir -p bin
-	set -e; for d in apps/*/cmd/*/; do \
+	set -e; for d in demos/*/cmd/*/; do \
 		cmd=$$(basename "$$d"); app=$$(basename "$$(dirname "$$(dirname "$$d")")"); \
 		go build -o "bin/$$app-$$cmd" "./$$d"; \
 	done
@@ -19,7 +19,7 @@ test:
 
 # Every demo ships an offline kit.
 check-kits:
-	set -e; for a in apps/*/; do [ -d "$${a}cmd/kit" ] || { echo "$$a has no cmd/kit (every demo needs an offline kit)"; exit 1; }; done
+	set -e; for a in demos/*/; do [ -d "$${a}cmd/kit" ] || { echo "$$a has no cmd/kit (every demo needs an offline kit)"; exit 1; }; done
 
 # Every sample app's descriptor is well formed, and no sample holds app code.
 check-samples:
@@ -31,8 +31,8 @@ check-samples:
 web:
 	pnpm --dir web install --frozen-lockfile
 	pnpm --dir web --filter @localstack-app-emulators/$(APP) build
-	find apps/$(APP)/internal/ui/assets -mindepth 1 ! -name placeholder.html -delete
-	cp -R web/apps/$(APP)/dist/. apps/$(APP)/internal/ui/assets/
+	find demos/$(APP)/internal/ui/assets -mindepth 1 ! -name placeholder.html -delete
+	cp -R web/demos/$(APP)/dist/. demos/$(APP)/internal/ui/assets/
 
 # make kit APP=acme-commerce-lenders ARGS=seed
 kit: build

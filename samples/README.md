@@ -1,6 +1,6 @@
 # Samples
 
-A sample is an open source app, written by someone else for real users, that is run against the app emulators. It has the use cases and edge cases real customers hit, and its own tests, which we did not invent. The demos in `apps/` are different: they are staged to show well, and they are ours.
+A sample is an open source app, written by someone else for real users, that is run against the app emulators. It has the use cases and edge cases real customers hit, and its own tests, which we did not invent. The demos in `demos/` are different: they are staged to show well, and they are ours.
 
 This directory records which app was run and how. It never holds the app's code. The code stays in its own repo under its own license, and a run fetches the commit named here.
 

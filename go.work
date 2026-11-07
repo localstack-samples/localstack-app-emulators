@@ -1,6 +1,6 @@
 go 1.26
 
 use (
-	./apps/acme-commerce-lenders
+	./demos/acme-commerce-lenders
 	./shared
 )
