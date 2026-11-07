@@ -1,5 +1,5 @@
 packages:
-  - 'apps/*'
+  - 'demos/*'
   - 'packages/*'
 
 # Supply-chain policy. Semgrep's package_managers.pnpm rules block the build

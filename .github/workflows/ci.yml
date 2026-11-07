@@ -66,7 +66,7 @@ jobs:
       - name: Build every demo's offline kit
         run: |
           set -euo pipefail
-          for app in apps/*/; do
+          for app in demos/*/; do
             [ -d "${app}cmd/kit" ] || { echo "${app} has no cmd/kit (every demo needs an offline kit)"; exit 1; }
             echo "Building ${app}cmd/kit..."
             go build -o /dev/null "./${app}cmd/kit"
@@ -118,7 +118,7 @@ jobs:
       - name: Check the binary serves the built UI
         run: |
           set -euo pipefail
-          go build -o "$RUNNER_TEMP/kit" "./apps/$APP/cmd/kit"
+          go build -o "$RUNNER_TEMP/kit" "./demos/$APP/cmd/kit"
           "$RUNNER_TEMP/kit" serve --addr 127.0.0.1:18080 --state "$RUNNER_TEMP/state.json" &
           pid=$!
           trap 'kill $pid' EXIT

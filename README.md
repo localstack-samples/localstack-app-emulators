@@ -10,7 +10,7 @@ Status: In Development
 
 ACME Commerce Lenders is a fictional working-capital lender for ecommerce companies. A merchant applies for working capital, and the lender reads their sales from Stripe and their bank data from Plaid to make an offer. When the merchant accepts, the lender funds the advance through Stripe Connect into the bank account the merchant verified with Plaid, and the settlement appears in the merchant's Xero books. Every third-party system is an app emulator, so the whole flow runs locally, resets in one click, and needs no vendor sandbox or real account.
 
-Code and docs: [apps/acme-commerce-lenders](apps/acme-commerce-lenders)
+Code and docs: [demos/acme-commerce-lenders](demos/acme-commerce-lenders)
 
 #### Demo Scenarios
 
@@ -26,11 +26,11 @@ Each demo is one Go binary, `cmd/kit`, that serves the demo's UI and runs its lo
 
 ## Repo layout
 
-Each demo is a Go app under `apps/`. The repo is a Go workspace (`go.work`), so every app and the shared module build together. Adding a demo adds a directory under `apps/` and one line to `go.work`.
+Each demo is a Go app under `demos/`. The repo is a Go workspace (`go.work`), so every app and the shared module build together. Adding a demo adds a directory under `demos/` and one line to `go.work`.
 
 | Path | What it holds |
 |---|---|
-| `apps/<demo>/` | One demo: its Go code, its docs and its embedded UI |
+| `demos/<demo>/` | One demo: its Go code, its docs and its embedded UI |
 | `shared/` | Code every demo uses: the recording proxy for vendor calls, vendor base URL config, and a launcher for running app emulators without LocalStack |
 | `samples/<sample>/` | One sample: a descriptor of the open source app and the output of runs, never the app's code |
 | `web/` | pnpm workspace for the demo UIs, built as static assets that the Go binaries embed |
@@ -42,7 +42,7 @@ Each demo is a Go app under `apps/`. The repo is a Go workspace (`go.work`), so 
 make vet                        # go vet for every module
 make test                       # go test for every module
 make web APP=<demo>            # builds that demo's UI into its binary (needs Node 22 and pnpm)
-make build                      # builds every apps/<demo>/cmd/<name> to bin/<demo>-<name>
+make build                      # builds every demos/<demo>/cmd/<name> to bin/<demo>-<name>
 make kit APP=<demo>             # builds, then runs that demo's binary
 make check-kits                 # fails if a demo has no cmd/kit
 make check-samples              # fails if a sample's descriptor is malformed or a sample holds app code

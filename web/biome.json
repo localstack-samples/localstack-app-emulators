@@ -9,12 +9,12 @@
   "files": {
     "ignoreUnknown": true,
     "includes": [
-      "apps/*/src/**",
+      "demos/*/src/**",
       "packages/*/src/**",
       "*.json",
       "*.ts",
       "*.tsx",
-      "!apps/*/src/routeTree.gen.ts"
+      "!demos/*/src/routeTree.gen.ts"
     ]
   },
   "formatter": {
