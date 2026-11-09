@@ -3,8 +3,8 @@
 # Manage it from https://v2.app.localstack.cloud/projects/proj_5f62a1e8 -
 # "Update CI workflow" there opens a fresh PR when the config changes.
 #
-# Requires a LOCALSTACK_AUTH_TOKEN repository secret - use a CI key
-# from https://app.localstack.cloud/workspace/auth-tokens
+# Authenticates via GitHub Actions OIDC - no repository secret
+# needed. Configured from the project's settings on the platform.
 name: LocalStack CI
 
 on:
@@ -13,11 +13,39 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Authenticate to LocalStack via GitHub OIDC
+        env:
+          LOCALSTACK_OIDC_AUDIENCE: https://v2.api.localstack.cloud/github-oidc
+          LOCALSTACK_PLATFORM_API_URL: https://v2.api.localstack.cloud
+          LOCALSTACK_ORG_ID: "1e09b0c1"
+          LOCALSTACK_PROJECT: "proj_5f62a1e8"
+        run: |
+          OIDC_TOKEN=$(curl -sSf \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${LOCALSTACK_OIDC_AUDIENCE}" \
+            | jq -r .value)
+
+          PAYLOAD=$(jq -n \
+            --arg token "$OIDC_TOKEN" \
+            --arg orgId "$LOCALSTACK_ORG_ID" \
+            --arg project "$LOCALSTACK_PROJECT" \
+            '{token: $token, orgId: $orgId, project: $project}')
+
+          RESPONSE=$(curl -sSf -X POST "${LOCALSTACK_PLATFORM_API_URL}/v1/auth/github-oidc" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          echo "LOCALSTACK_AUTH_TOKEN=$(echo "$RESPONSE" | jq -r .localstackAuthToken)" >> "$GITHUB_ENV"
 
       - uses: actions/setup-python@v5
         with:
@@ -38,8 +66,6 @@ jobs:
         run: pip install "https://localstack-artifacts-internal.s3.eu-central-1.amazonaws.com/packages/lstk-project/lstk_project-0.1.1-py3-none-any.whl"
 
       - name: "Start LocalStack for localstack-app-emulators"
-        env:
-          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
         run: |
           mkdir -p "$RUNNER_TEMP/lstk-stage" && exec > >(tee -a "$RUNNER_TEMP/lstk-stage/start.log") 2>&1
           lstk project start "localstack-app-emulators"
@@ -67,6 +93,4 @@ jobs:
       - name: "Shut down LocalStack for localstack-app-emulators"
         if: always()
         continue-on-error: true
-        env:
-          LOCALSTACK_AUTH_TOKEN: ${{ secrets.LOCALSTACK_AUTH_TOKEN }}
         run: lstk project shutdown "localstack-app-emulators" --status ${{ job.status }}
