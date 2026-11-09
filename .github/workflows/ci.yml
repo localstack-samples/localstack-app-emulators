@@ -135,3 +135,139 @@ jobs:
           curl -sf -o /dev/null "http://127.0.0.1:18080$script"
           # A missing file is a 404, not the app.
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/assets/missing.js)" = 404
+
+  # Runs the demo against LocalStack and drives the whole flow over HTTP: seed
+  # the world, apply, accept, fund and settle. Needs the LocalStack platform's
+  # GitHub OIDC login, which a fork's pull request is not given.
+  # localstack-project-id: proj_5f62a1e8 (https://v2.app.localstack.cloud/projects/proj_5f62a1e8)
+  # Runtime config (emulator image, env vars, extensions) is fetched by
+  # `lstk project start` at run time, so change it on the platform, not here.
+  integration:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      KIT_ADDR: 127.0.0.1:18081
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.node-version
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.work
+          cache: false
+
+      - name: Authenticate to LocalStack via GitHub OIDC
+        env:
+          LOCALSTACK_OIDC_AUDIENCE: https://v2.api.localstack.cloud/github-oidc
+          LOCALSTACK_PLATFORM_API_URL: https://v2.api.localstack.cloud
+          LOCALSTACK_ORG_ID: "1e09b0c1"
+          LOCALSTACK_PROJECT: "proj_5f62a1e8"
+        run: |
+          set -euo pipefail
+          OIDC_TOKEN=$(curl -sSf \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${LOCALSTACK_OIDC_AUDIENCE}" \
+            | jq -r .value)
+
+          PAYLOAD=$(jq -n \
+            --arg token "$OIDC_TOKEN" \
+            --arg orgId "$LOCALSTACK_ORG_ID" \
+            --arg project "$LOCALSTACK_PROJECT" \
+            '{token: $token, orgId: $orgId, project: $project}')
+
+          RESPONSE=$(curl -sSf -X POST "${LOCALSTACK_PLATFORM_API_URL}/v1/auth/github-oidc" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          TOKEN=$(echo "$RESPONSE" | jq -r .localstackAuthToken)
+          echo "::add-mask::$TOKEN"
+          echo "LOCALSTACK_AUTH_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Install lstk and lstk-project
+        run: |
+          npm install -g @localstack/lstk
+          pip install "https://localstack-artifacts-internal.s3.eu-central-1.amazonaws.com/packages/lstk-project/lstk_project-0.1.1-py3-none-any.whl"
+
+      - name: Start LocalStack
+        run: |
+          mkdir -p "$RUNNER_TEMP/lstk-stage" && exec > >(tee -a "$RUNNER_TEMP/lstk-stage/start.log") 2>&1
+          lstk project start "localstack-app-emulators"
+
+      - name: Verify LocalStack is healthy
+        run: curl -sf localhost:4566/_localstack/health
+
+      # The demo calls Stripe, Plaid and Xero. Any LocalStack does not host yet
+      # is built from WonderTwin and run beside it, the same as the usage guide
+      # says to do locally. An app emulator installs on its first call, so the
+      # health check below can take a while.
+      - name: Run the app emulators LocalStack does not host
+        run: |
+          set -euo pipefail
+          missing=""
+          for app in plaid xero; do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
+              -H "Host: $app.localhost.localstack.cloud:4566" http://127.0.0.1:4566/admin/health || true)"
+            echo "$app on LocalStack: HTTP $code"
+            [ "$code" = 200 ] || missing="$missing $app"
+          done
+          [ -n "$missing" ] || exit 0
+          git clone --depth 1 https://github.com/WonderTwin-AI/wondertwin "$RUNNER_TEMP/wondertwin"
+          port=5101
+          for app in $missing; do
+            (cd "$RUNNER_TEMP/wondertwin" && go build -o "$RUNNER_TEMP/twin-$app" "./twin-$app/cmd/twin-$app")
+            "$RUNNER_TEMP/twin-$app" --port=$port > "$RUNNER_TEMP/twin-$app.log" 2>&1 &
+            echo "$(echo "$app" | tr a-z A-Z)_EMULATOR_URL=http://127.0.0.1:$port" >> "$GITHUB_ENV"
+            port=$((port + 1))
+          done
+
+      - name: Build the demo
+        run: |
+          set -euo pipefail
+          go build -o "$RUNNER_TEMP/kit" ./demos/acme-commerce-lenders/cmd/kit
+
+      - name: Check the app emulators are ready
+        run: |
+          "$RUNNER_TEMP/kit" ready --state "$RUNNER_TEMP/state.json"
+          # ready may have to wait out a first-call install, so give it every chance
+          # before the flow starts.
+
+      - name: Run the demo and its integration tests
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/kit" serve --addr "$KIT_ADDR" --state "$RUNNER_TEMP/state.json" > "$RUNNER_TEMP/kit.log" 2>&1 &
+          trap 'kill $!' EXIT
+          for _ in $(seq 1 40); do
+            curl -sf "http://$KIT_ADDR/api/status" >/dev/null && break
+            sleep 0.5
+          done
+          cd demos/acme-commerce-lenders
+          KIT_URL="http://$KIT_ADDR" go test -tags integration -count=1 -v ./integration
+
+      - name: Show the demo log and LocalStack logs
+        if: always()
+        run: |
+          cat "$RUNNER_TEMP/kit.log" || true
+          docker logs --tail 200 localstack-aws || true
+
+      - name: Generate a LocalStack diagnostic report
+        if: failure()
+        run: curl -s localhost:4566/_localstack/diagnose | gzip -cf > diagnose.json.gz || true
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: localstack-diagnose
+          path: diagnose.json.gz
+          if-no-files-found: ignore
+
+      - name: Shut down LocalStack
+        if: always()
+        continue-on-error: true
+        run: lstk project shutdown "localstack-app-emulators" --status ${{ job.status }}
