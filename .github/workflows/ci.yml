@@ -198,6 +198,16 @@ jobs:
           mkdir -p "$RUNNER_TEMP/lstk-stage" && exec > >(tee -a "$RUNNER_TEMP/lstk-stage/start.log") 2>&1
           lstk project start "localstack-app-emulators"
 
+      # Shows what the sandbox serves, so a "not-included" failure below says
+      # whether the app emulators are missing or the Host header never arrives.
+      - name: Probe the app emulators
+        run: |
+          curl -s localhost:4566/_localstack/info || true; echo
+          for app in stripe plaid xero; do
+            echo "$app via Host header:"
+            curl -s -w ' HTTP %{http_code}\n' -H "Host: $app.localhost.localstack.cloud:4566" localhost:4566/admin/health || true
+          done
+
       # The test starts the demo itself. Stripe, Plaid and Xero are hosted by
       # LocalStack, and each installs on its first call, which is the test's
       # first reset.
