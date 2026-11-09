@@ -198,34 +198,16 @@ jobs:
           mkdir -p "$RUNNER_TEMP/lstk-stage" && exec > >(tee -a "$RUNNER_TEMP/lstk-stage/start.log") 2>&1
           lstk project start "localstack-app-emulators"
 
-      - name: Verify LocalStack is healthy
-        run: curl -sf localhost:4566/_localstack/health
+      # The test starts the demo itself. Stripe, Plaid and Xero are hosted by
+      # LocalStack, and each installs on its first call, which is the test's
+      # first reset.
+      - name: Run the integration tests
+        working-directory: demos/acme-commerce-lenders
+        run: go test -tags integration -count=1 -v ./integration
 
-      - name: Build the demo
-        run: go build -o "$RUNNER_TEMP/kit" ./demos/acme-commerce-lenders/cmd/kit
-
-      # Stripe, Plaid and Xero are all hosted by LocalStack. An app emulator
-      # installs on its first call, and this is that call.
-      - name: Check the app emulators are ready
-        run: |
-          "$RUNNER_TEMP/kit" ready --state "$RUNNER_TEMP/state.json"
-
-      - name: Run the integration tests against the demo
-        run: |
-          "$RUNNER_TEMP/kit" serve --state "$RUNNER_TEMP/state.json" > "$RUNNER_TEMP/kit.log" 2>&1 &
-          trap 'kill $!' EXIT
-          for _ in $(seq 1 40); do
-            curl -sf http://127.0.0.1:8080/api/status >/dev/null && break
-            sleep 0.5
-          done
-          cd demos/acme-commerce-lenders
-          KIT_URL=http://127.0.0.1:8080 go test -tags integration -count=1 -v ./integration
-
-      - name: Show the demo log and LocalStack logs
+      - name: Show the LocalStack logs
         if: always()
-        run: |
-          cat "$RUNNER_TEMP/kit.log" || true
-          docker logs --tail 200 localstack-aws || true
+        run: docker logs --tail 200 localstack-aws || true
 
       - name: Generate a LocalStack diagnostic report
         if: failure()

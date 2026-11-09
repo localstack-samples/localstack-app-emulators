@@ -1,48 +1,78 @@
 //go:build integration
 
-// Package integration drives a running demo end to end over HTTP, against real
-// app emulators (hosted by LocalStack, or run by you). It is what CI runs after
-// starting LocalStack.
+// Package integration runs the demo against LocalStack and drives it over HTTP.
+// It starts the demo in the test process, so it needs only LocalStack running
+// with the Stripe, Plaid and Xero app emulators:
 //
-// Run it with:
-//
-//	make kit APP=acme-commerce-lenders ARGS=serve &   # with LocalStack up
-//	KIT_URL=http://127.0.0.1:8080 go test -tags integration ./integration
+//	lstk
+//	go test -tags integration ./integration
 //
 // The tests share one seeded world, so they run in order and the last one
-// resets it. Without KIT_URL they skip.
+// resets it.
 package integration
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
-	"strings"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/localstack-samples/localstack-app-emulators/demos/acme-commerce-lenders/internal/cli"
 	"github.com/localstack-samples/localstack-app-emulators/demos/acme-commerce-lenders/lender"
 	"github.com/localstack-samples/localstack-app-emulators/demos/acme-commerce-lenders/world"
 )
 
-var client = &http.Client{Timeout: 3 * time.Minute}
+var (
+	client = &http.Client{Timeout: 3 * time.Minute}
+	base   string
+)
 
-func baseURL(t *testing.T) string {
-	t.Helper()
-	u := os.Getenv("KIT_URL")
-	if u == "" {
-		t.Skip("KIT_URL is not set; start the demo and set it to run the integration tests")
+func TestMain(m *testing.M) { os.Exit(run(m)) }
+
+func run(m *testing.M) int {
+	dir, err := os.MkdirTemp("", "demo-integration")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
-	return strings.TrimRight(u, "/")
+	defer os.RemoveAll(dir)
+
+	// A free port, so the tests never collide with a demo you have running.
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	addr := l.Addr().String()
+	l.Close()
+	base = "http://" + addr
+
+	go cli.Run(context.Background(), []string{"serve", "--addr", addr, "--state", filepath.Join(dir, "state.json")}, os.Getenv, os.Stderr, os.Stderr)
+	for i := 0; ; i++ {
+		if resp, err := client.Get(base + "/api/status"); err == nil {
+			resp.Body.Close()
+			break
+		} else if i == 50 {
+			fmt.Fprintln(os.Stderr, "the demo did not start:", err)
+			return 1
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return m.Run()
 }
 
 // call sends a request to the demo and decodes a JSON response into out, which
 // may be nil. It returns the HTTP status.
 func call(t *testing.T, method, path string, out any) int {
 	t.Helper()
-	req, err := http.NewRequest(method, baseURL(t)+path, bytes.NewReader(nil))
+	req, err := http.NewRequest(method, base+path, bytes.NewReader(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +111,6 @@ func resetWorld(t *testing.T) world.Facts {
 }
 
 func TestSeededWorldIsReadyAndMatchesTheDocs(t *testing.T) {
-	baseURL(t)
 	resetWorld(t)
 
 	var st status
@@ -109,7 +138,6 @@ func TestSeededWorldIsReadyAndMatchesTheDocs(t *testing.T) {
 }
 
 func TestApplyAcceptFundAndSettle(t *testing.T) {
-	baseURL(t)
 	resetWorld(t)
 
 	var a lender.Application
@@ -164,7 +192,6 @@ func TestApplyAcceptFundAndSettle(t *testing.T) {
 }
 
 func TestStepsOutOfOrderAreRefused(t *testing.T) {
-	baseURL(t)
 	resetWorld(t)
 
 	var a lender.Application
@@ -178,7 +205,6 @@ func TestStepsOutOfOrderAreRefused(t *testing.T) {
 }
 
 func TestEveryVendorCallIsRecordedAsAnEmulatorAnswer(t *testing.T) {
-	baseURL(t)
 	resetWorld(t)
 
 	var a lender.Application
@@ -216,7 +242,6 @@ func TestEveryVendorCallIsRecordedAsAnEmulatorAnswer(t *testing.T) {
 
 // Last, because it leaves the world as it found it: a reset undoes a run.
 func TestResetUndoesARun(t *testing.T) {
-	baseURL(t)
 	before := resetWorld(t)
 
 	var a lender.Application
