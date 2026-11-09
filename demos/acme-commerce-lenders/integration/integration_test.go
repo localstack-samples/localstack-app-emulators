@@ -103,11 +103,14 @@ type status struct {
 // resetWorld puts every app emulator back at the seeded start.
 func resetWorld(t *testing.T) world.Facts {
 	t.Helper()
-	var f world.Facts
-	if code := call(t, "POST", "/api/reset", &f); code != http.StatusOK {
-		t.Fatalf("reset: status %d", code)
+	var f struct {
+		world.Facts
+		Error string `json:"error"`
 	}
-	return f
+	if code := call(t, "POST", "/api/reset", &f); code != http.StatusOK {
+		t.Fatalf("reset: status %d: %s", code, f.Error)
+	}
+	return f.Facts
 }
 
 func TestSeededWorldIsReadyAndMatchesTheDocs(t *testing.T) {

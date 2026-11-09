@@ -207,7 +207,9 @@ jobs:
 
       - name: Show the LocalStack logs
         if: always()
-        run: docker logs --tail 200 localstack-aws || true
+        run: |
+          docker ps -a
+          for c in $(docker ps -aq); do docker logs --tail 200 "$c" 2>&1 || true; done
 
       - name: Generate a LocalStack diagnostic report
         if: failure()
