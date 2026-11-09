@@ -149,8 +149,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    env:
-      KIT_ADDR: 127.0.0.1:18081
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -203,52 +201,25 @@ jobs:
       - name: Verify LocalStack is healthy
         run: curl -sf localhost:4566/_localstack/health
 
-      # The demo calls Stripe, Plaid and Xero. Any LocalStack does not host yet
-      # is built from WonderTwin and run beside it, the same as the usage guide
-      # says to do locally. An app emulator installs on its first call, so the
-      # health check below can take a while.
-      - name: Run the app emulators LocalStack does not host
-        run: |
-          set -euo pipefail
-          missing=""
-          for app in plaid xero; do
-            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
-              -H "Host: $app.localhost.localstack.cloud:4566" http://127.0.0.1:4566/admin/health || true)"
-            echo "$app on LocalStack: HTTP $code"
-            [ "$code" = 200 ] || missing="$missing $app"
-          done
-          [ -n "$missing" ] || exit 0
-          git clone --depth 1 https://github.com/WonderTwin-AI/wondertwin "$RUNNER_TEMP/wondertwin"
-          port=5101
-          for app in $missing; do
-            (cd "$RUNNER_TEMP/wondertwin" && go build -o "$RUNNER_TEMP/twin-$app" "./twin-$app/cmd/twin-$app")
-            "$RUNNER_TEMP/twin-$app" --port=$port > "$RUNNER_TEMP/twin-$app.log" 2>&1 &
-            echo "$(echo "$app" | tr a-z A-Z)_EMULATOR_URL=http://127.0.0.1:$port" >> "$GITHUB_ENV"
-            port=$((port + 1))
-          done
-
       - name: Build the demo
-        run: |
-          set -euo pipefail
-          go build -o "$RUNNER_TEMP/kit" ./demos/acme-commerce-lenders/cmd/kit
+        run: go build -o "$RUNNER_TEMP/kit" ./demos/acme-commerce-lenders/cmd/kit
 
+      # Stripe, Plaid and Xero are all hosted by LocalStack. An app emulator
+      # installs on its first call, and this is that call.
       - name: Check the app emulators are ready
         run: |
           "$RUNNER_TEMP/kit" ready --state "$RUNNER_TEMP/state.json"
-          # ready may have to wait out a first-call install, so give it every chance
-          # before the flow starts.
 
-      - name: Run the demo and its integration tests
+      - name: Run the integration tests against the demo
         run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/kit" serve --addr "$KIT_ADDR" --state "$RUNNER_TEMP/state.json" > "$RUNNER_TEMP/kit.log" 2>&1 &
+          "$RUNNER_TEMP/kit" serve --state "$RUNNER_TEMP/state.json" > "$RUNNER_TEMP/kit.log" 2>&1 &
           trap 'kill $!' EXIT
           for _ in $(seq 1 40); do
-            curl -sf "http://$KIT_ADDR/api/status" >/dev/null && break
+            curl -sf http://127.0.0.1:8080/api/status >/dev/null && break
             sleep 0.5
           done
           cd demos/acme-commerce-lenders
-          KIT_URL="http://$KIT_ADDR" go test -tags integration -count=1 -v ./integration
+          KIT_URL=http://127.0.0.1:8080 go test -tags integration -count=1 -v ./integration
 
       - name: Show the demo log and LocalStack logs
         if: always()
