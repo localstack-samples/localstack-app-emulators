@@ -208,9 +208,31 @@ jobs:
             curl -s -w ' HTTP %{http_code}\n' -H "Host: $app.localhost.localstack.cloud:4566" localhost:4566/admin/health || true
           done
 
-      # The test starts the demo itself. Stripe, Plaid and Xero are hosted by
-      # LocalStack, and each installs on its first call, which is the test's
-      # first reset.
+      # Any app emulator this LocalStack release does not host is built from
+      # WonderTwin and run beside it, and the demo is pointed at it through
+      # <APP>_EMULATOR_URL. Plaid and Xero are in no LocalStack release yet.
+      - name: Run the app emulators LocalStack does not host
+        run: |
+          set -euo pipefail
+          missing=""
+          for app in stripe plaid xero; do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 \
+              -H "Host: $app.localhost.localstack.cloud:4566" http://127.0.0.1:4566/admin/health || true)"
+            echo "$app on LocalStack: HTTP $code"
+            [ "$code" = 200 ] || missing="$missing $app"
+          done
+          [ -n "$missing" ] || exit 0
+          git clone --depth 1 https://github.com/WonderTwin-AI/wondertwin "$RUNNER_TEMP/wondertwin"
+          port=5101
+          for app in $missing; do
+            (cd "$RUNNER_TEMP/wondertwin" && go build -o "$RUNNER_TEMP/twin-$app" "./twin-$app/cmd/twin-$app")
+            "$RUNNER_TEMP/twin-$app" --port=$port > "$RUNNER_TEMP/twin-$app.log" 2>&1 &
+            echo "$(echo "$app" | tr a-z A-Z)_EMULATOR_URL=http://127.0.0.1:$port" >> "$GITHUB_ENV"
+            port=$((port + 1))
+          done
+
+      # The test starts the demo itself, and it uses LocalStack for every app
+      # emulator the step above did not replace.
       - name: Run the integration tests
         working-directory: demos/acme-commerce-lenders
         run: go test -tags integration -count=1 -v ./integration
