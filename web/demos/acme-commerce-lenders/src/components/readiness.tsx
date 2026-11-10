@@ -15,8 +15,8 @@ const sourceNames: Record<EmulatorStatus['source'], string> = {
   local: 'Local',
 }
 
-function Pill({ e }: { e: EmulatorStatus }) {
-  const ok = e.state === 'healthy'
+function Pill({ e, stale }: { e: EmulatorStatus; stale: boolean }) {
+  const ok = e.state === 'healthy' && !stale
   return (
     <div
       className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3"
@@ -29,7 +29,7 @@ function Pill({ e }: { e: EmulatorStatus }) {
         </div>
       </div>
       <Badge variant={ok ? 'success' : 'destructive'}>
-        {ok ? 'Ready' : e.state}
+        {ok ? 'Ready' : stale ? 'Out of date' : e.state}
       </Badge>
     </div>
   )
@@ -64,7 +64,11 @@ export function Readiness() {
     <Card>
       <div className="grid grid-cols-3 gap-3">
         {data.emulators.map((e) => (
-          <Pill key={e.vendor} e={e} />
+          <Pill
+            key={e.vendor}
+            e={e}
+            stale={data.stale?.some((s) => s.vendor === e.vendor) ?? false}
+          />
         ))}
       </div>
       {problems.map((e) => (
@@ -72,6 +76,15 @@ export function Readiness() {
           {vendorNames[e.vendor] ?? e.vendor}: {e.hint ?? e.state}
         </p>
       ))}
+      {problems.length === 0 && (data.stale?.length ?? 0) > 0 && (
+        <p className="text-sm text-destructive" role="alert">
+          {data.stale
+            ?.map((s) => vendorNames[s.vendor] ?? s.vendor)
+            .join(' and ')}{' '}
+          no longer holds the seeded world, as if it restarted. Press Reset to
+          seed it again.
+        </p>
+      )}
       {problems.length === 0 && !data.seeded && (
         <p className="text-sm text-muted-foreground" role="status">
           The world is not seeded yet. Press Reset to seed it.
