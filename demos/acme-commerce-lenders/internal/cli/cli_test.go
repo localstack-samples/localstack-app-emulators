@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/localstack-samples/localstack-app-emulators/demos/acme-commerce-lenders/internal/fakevendors"
 	"github.com/localstack-samples/localstack-app-emulators/demos/acme-commerce-lenders/world"
@@ -170,5 +172,55 @@ func TestTheServerServesTheAPIAndTheUI(t *testing.T) {
 	}
 	if code, body := get("GET", "/api/events"); code != 200 || !strings.Contains(body, `"vendor":"stripe"`) {
 		t.Fatalf("the connect calls should be recorded as events: %d %s", code, body)
+	}
+}
+
+func TestListenFallsBackOnlyWhenTheAddressWasNotChosen(t *testing.T) {
+	busy, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer busy.Close()
+	addr := busy.Addr().String()
+
+	if _, err := listen(addr, true); err == nil {
+		t.Fatal("an address the presenter chose must fail when taken, not move")
+	}
+	l, err := listen(addr, false)
+	if err != nil {
+		t.Skipf("the next ports are taken on this machine: %v", err)
+	}
+	defer l.Close()
+	if l.Addr().String() == addr {
+		t.Fatalf("expected a different port, got %s", l.Addr())
+	}
+}
+
+func TestServeStopsCleanlyAndFreesThePort(t *testing.T) {
+	var resets atomic.Int32
+	env := envFor(fakevendors.New(t, &resets).URL)
+	ctx, cancel := context.WithCancel(context.Background())
+	var o bytes.Buffer
+	a := &app{
+		ctx: ctx, getenv: func(k string) string { return env[k] }, out: &o, err: io.Discard,
+		targets:   world.TargetsFromEnv(func(k string) string { return env[k] }),
+		statePath: filepath.Join(t.TempDir(), "state.json"),
+	}
+	done := make(chan error, 1)
+	go func() { done <- a.serve("127.0.0.1:0", true) }()
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("a clean stop is not an error: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("serve did not stop")
+	}
+}
+
+func TestTheDefaultStateIsNotInACacheFolder(t *testing.T) {
+	if p := defaultStatePath(); strings.Contains(p, "Caches") || strings.Contains(p, "/.cache/") {
+		t.Fatalf("state must not live where the system may clear it: %s", p)
 	}
 }

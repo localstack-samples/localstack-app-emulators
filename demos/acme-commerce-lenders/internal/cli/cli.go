@@ -8,10 +8,14 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/localstack-samples/localstack-app-emulators/demos/acme-commerce-lenders/core"
@@ -46,7 +50,7 @@ func Run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	fs := flag.NewFlagSet(cmd, flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.StringVar(&app.statePath, "state", defaultStatePath(), "file holding what the lender knows")
-	addr := fs.String("addr", "127.0.0.1:8080", "address the UI listens on (serve only)")
+	addr := fs.String("addr", defaultAddr, "address the UI listens on (serve only); when not given, the next free port is used if 8080 is taken")
 
 	switch cmd {
 	case "serve", "ready", "seed", "reset":
@@ -61,10 +65,13 @@ func Run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		return 2
 	}
 
+	explicit := false
+	fs.Visit(func(f *flag.Flag) { explicit = explicit || f.Name == "addr" })
+
 	var err error
 	switch cmd {
 	case "serve":
-		err = app.serve(*addr)
+		err = app.serve(*addr, explicit)
 	case "ready":
 		err = app.ready()
 	case "seed":
@@ -108,15 +115,55 @@ func (a *app) handler() (http.Handler, error) {
 	return mux, nil
 }
 
-func (a *app) serve(addr string) error {
+const defaultAddr = "127.0.0.1:8080"
+
+// listen opens the UI's port. An address the presenter chose must be free or it
+// fails. The default is the first free port from 8080 to 8089, so a stale run
+// of the demo does not stop the next one.
+func listen(addr string, explicit bool) (net.Listener, error) {
+	l, err := net.Listen("tcp", addr)
+	if err == nil || explicit {
+		return l, err
+	}
+	host, portStr, splitErr := net.SplitHostPort(addr)
+	port, convErr := strconv.Atoi(portStr)
+	if splitErr != nil || convErr != nil {
+		return nil, err
+	}
+	for p := port + 1; p < port+10; p++ {
+		if l, e := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(p))); e == nil {
+			return l, nil
+		}
+	}
+	return nil, fmt.Errorf("%w (ports %d to %d are all taken; stop the earlier run, or choose one with --addr)", err, port, port+9)
+}
+
+func (a *app) serve(addr string, explicit bool) error {
 	h, err := a.handler()
 	if err != nil {
 		return err
 	}
-	srv := &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 5 * time.Second}
+	l, err := listen(addr, explicit)
+	if err != nil {
+		return err
+	}
+	srv := &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second}
 	a.printTargets("Calling:")
-	fmt.Fprintf(a.out, "ACME Commerce Lenders on http://%s\n", addr)
-	return srv.ListenAndServe()
+	fmt.Fprintf(a.out, "ACME Commerce Lenders on http://%s\n", l.Addr())
+
+	// Ctrl-C and a plain kill end the run cleanly, so the port is free at once.
+	ctx, stop := signal.NotifyContext(a.ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	errc := make(chan error, 1)
+	go func() { errc <- srv.Serve(l) }()
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+	}
+	shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return srv.Shutdown(shutdown)
 }
 
 func (a *app) printTargets(heading string) {
@@ -199,7 +246,10 @@ func dollars(cents int64) string {
 }
 
 func defaultStatePath() string {
-	dir, err := os.UserCacheDir()
+	// The state is the lender's own record of the seeded world. Keep it in the
+	// user's config folder, not a cache folder the system may clear: on a Mac,
+	// ~/Library/Application Support rather than ~/Library/Caches.
+	dir, err := os.UserConfigDir()
 	if err != nil {
 		dir = os.TempDir()
 	}
