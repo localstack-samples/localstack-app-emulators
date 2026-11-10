@@ -28,6 +28,12 @@ type PlaidFacts struct {
 
 const plaidInstitution = "ins_109508"
 
+// The sandbox credentials the lender sends Plaid. The app emulator accepts any.
+const (
+	plaidClientID = "acme-demo-client"
+	plaidSecret   = "acme-demo-secret"
+)
+
 // SeedPlaid connects a bank account for the merchant the way a Plaid Link
 // session would, through the sandbox. The app emulator's clock is moved to the
 // world's date first, so the fixture's transactions fall in the last few days
@@ -35,7 +41,7 @@ const plaidInstitution = "ins_109508"
 func SeedPlaid(ctx context.Context, hc *http.Client, t wire.Target) (PlaidFacts, error) {
 	var facts PlaidFacts
 	api := seed.API{HC: hc, Target: t}
-	creds := map[string]any{"client_id": "acme-demo-client", "secret": "acme-demo-secret"}
+	creds := map[string]any{"client_id": plaidClientID, "secret": plaidSecret}
 	body := func(extra map[string]any) map[string]any {
 		m := map[string]any{}
 		for k, v := range creds {
