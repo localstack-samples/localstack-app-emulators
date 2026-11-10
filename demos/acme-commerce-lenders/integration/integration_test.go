@@ -5,7 +5,11 @@
 // with the Stripe, Plaid and Xero app emulators:
 //
 //	lstk
-//	go test -tags integration ./integration
+//	INTEGRATION_ALLOW_RESET=1 go test -tags integration ./integration
+//
+// The tests reset every app emulator they talk to: LocalStack's shared Stripe
+// emulator and any emulator at <VENDOR>_EMULATOR_URL. They refuse to run
+// unless INTEGRATION_ALLOW_RESET=1 is set.
 //
 // The tests share one seeded world, so they run in order and the last one
 // resets it.
@@ -37,6 +41,10 @@ var (
 func TestMain(m *testing.M) { os.Exit(run(m)) }
 
 func run(m *testing.M) int {
+	if os.Getenv("INTEGRATION_ALLOW_RESET") != "1" {
+		fmt.Fprintln(os.Stderr, "this resets every app emulator it talks to; set INTEGRATION_ALLOW_RESET=1 to run")
+		return 1
+	}
 	dir, err := os.MkdirTemp("", "demo-integration")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

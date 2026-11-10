@@ -142,6 +142,10 @@ jobs:
   # localstack-project-id: proj_5f62a1e8 (https://v2.app.localstack.cloud/projects/proj_5f62a1e8)
   # Runtime config (emulator image, env vars, extensions) is fetched by
   # `lstk project start` at run time, so change it on the platform, not here.
+  #
+  # Today LocalStack answers 404 for stripe, plaid and xero, so all three app
+  # emulators come from the WonderTwin builds below and LocalStack is started
+  # but not exercised. This is not LocalStack-hosted coverage yet.
   integration:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -149,6 +153,10 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      # The WonderTwin commit the twins are built from. The test asserts exact
+      # numbers, so bump this deliberately, in the PR that changes them.
+      WONDERTWIN_REF: 8f1b30fcaf8d9f7c97278eff1b29ff476e8eaa26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -222,11 +230,14 @@ jobs:
             [ "$code" = 200 ] || missing="$missing $app"
           done
           [ -n "$missing" ] || exit 0
-          git clone --depth 1 https://github.com/WonderTwin-AI/wondertwin "$RUNNER_TEMP/wondertwin"
+          git init -q "$RUNNER_TEMP/wondertwin"
+          git -C "$RUNNER_TEMP/wondertwin" fetch -q --depth 1 https://github.com/WonderTwin-AI/wondertwin "$WONDERTWIN_REF"
+          git -C "$RUNNER_TEMP/wondertwin" checkout -q FETCH_HEAD
           port=5101
           for app in $missing; do
             (cd "$RUNNER_TEMP/wondertwin" && go build -o "$RUNNER_TEMP/twin-$app" "./twin-$app/cmd/twin-$app")
-            "$RUNNER_TEMP/twin-$app" --port=$port > "$RUNNER_TEMP/twin-$app.log" 2>&1 &
+            # The twins never need the LocalStack token, so they don't get it.
+            env -u LOCALSTACK_AUTH_TOKEN "$RUNNER_TEMP/twin-$app" --port=$port > "$RUNNER_TEMP/twin-$app.log" 2>&1 &
             echo "$(echo "$app" | tr a-z A-Z)_EMULATOR_URL=http://127.0.0.1:$port" >> "$GITHUB_ENV"
             port=$((port + 1))
           done
@@ -235,6 +246,8 @@ jobs:
       # emulator the step above did not replace.
       - name: Run the integration tests
         working-directory: demos/acme-commerce-lenders
+        env:
+          INTEGRATION_ALLOW_RESET: "1"
         run: go test -tags integration -count=1 -v ./integration
 
       - name: Show the LocalStack logs
