@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -296,4 +298,55 @@ func TestTargetsReportAndChangeWhichBaseURLEachVendorIsPointedAt(t *testing.T) {
 			t.Errorf("PUT %s: %d, want 400", body, rec.Code)
 		}
 	}
+}
+
+func TestAStaleWorldIsNotReadyUntilItIsReset(t *testing.T) {
+	// Plaid restarts: it answers health, but the access token saved at seeding
+	// is gone. The status must not say ready, and a reset must put it right.
+	var resets atomic.Int32
+	vendors := fakevendors.New(t, &resets)
+	var plaidRestarted atomic.Bool
+	front := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/item/get" && plaidRestarted.Load() {
+			http.Error(w, `{"error_code":"INVALID_ACCESS_TOKEN"}`, http.StatusBadRequest)
+			return
+		}
+		if r.URL.Path == "/admin/reset" {
+			plaidRestarted.Store(false) // a reset gives it a fresh Item
+		}
+		httputil.NewSingleHostReverseProxy(mustURL(t, vendors.URL)).ServeHTTP(w, r)
+	}))
+	defer front.Close()
+	tg := world.Targets{Stripe: wire.Direct("stripe", front.URL), Plaid: wire.Direct("plaid", front.URL), Xero: wire.Direct("xero", front.URL)}
+	admin := WorldAdmin{Targets: tg, Store: core.NewMemStore(), Rec: wire.NewRecorder(10)}
+	ctx := context.Background()
+
+	if _, err := admin.Reset(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if st, err := admin.Status(ctx); err != nil || !st.Ready || len(st.Stale) != 0 {
+		t.Fatalf("a freshly seeded world is ready: %+v, %v", st, err)
+	}
+
+	plaidRestarted.Store(true)
+	st, err := admin.Status(ctx)
+	if err != nil || st.Ready || !st.Seeded || len(st.Stale) == 0 || st.Stale[0].Vendor != "plaid" {
+		t.Fatalf("a restarted Plaid makes the world stale, not ready: %+v, %v", st, err)
+	}
+
+	if _, err := admin.Reset(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if st, err = admin.Status(ctx); err != nil || !st.Ready || len(st.Stale) != 0 {
+		t.Fatalf("a reset makes it ready again: %+v, %v", st, err)
+	}
+}
+
+func mustURL(t *testing.T, s string) *url.URL {
+	t.Helper()
+	u, err := url.Parse(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u
 }

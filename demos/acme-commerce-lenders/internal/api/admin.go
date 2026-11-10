@@ -33,7 +33,12 @@ func (a WorldAdmin) Status(ctx context.Context) (Status, error) {
 	case !errors.Is(err, core.ErrNotFound):
 		return st, err
 	}
-	st.Ready = healthy && st.Seeded
+	// Only a healthy app emulator can be asked what it holds. An unhealthy one is
+	// already reported, and its saved world may still be there when it is back.
+	if healthy && st.Seeded {
+		st.Stale = world.Verify(ctx, a.HC, a.Targets, facts)
+	}
+	st.Ready = healthy && st.Seeded && len(st.Stale) == 0
 	return st, nil
 }
 

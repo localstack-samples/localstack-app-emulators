@@ -215,6 +215,30 @@ describe('DemoPage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Press Reset')
   })
 
+  it('says what is out of date, and holds Apply back, when an app emulator lost the seeded world', async () => {
+    mocks.getStatus.mockResolvedValue({
+      ...readyStatus,
+      ready: false,
+      stale: [
+        {
+          vendor: 'plaid',
+          reason: 'the plaid app emulator no longer holds the seeded world',
+        },
+      ],
+    })
+    renderPage()
+    expect(await screen.findByTestId('emulator-plaid')).toHaveTextContent(
+      'Out of date',
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Plaid no longer holds the seeded world',
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('Press Reset')
+    expect(
+      screen.getByRole('button', { name: /apply for working capital/i }),
+    ).toBeDisabled()
+  })
+
   it('runs apply, connect, review and offer on the first click, in order', async () => {
     const user = userEvent.setup()
     renderPage()

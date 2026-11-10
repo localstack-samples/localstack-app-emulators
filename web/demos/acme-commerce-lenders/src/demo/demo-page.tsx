@@ -70,7 +70,9 @@ export function DemoPage() {
               <span className="text-sm text-muted-foreground">
                 {badUrl
                   ? 'Fix the base URL above to run the demo.'
-                  : 'Waiting for the app emulators and the seeded world.'}
+                  : status.data?.stale?.length
+                    ? 'The seeded world is out of date. Press Reset.'
+                    : 'Waiting for the app emulators and the seeded world.'}
               </span>
             )}
           </div>

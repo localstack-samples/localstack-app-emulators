@@ -92,6 +92,11 @@ export interface Status {
   seeded: boolean
   emulators: EmulatorStatus[]
   facts?: Facts
+  /**
+   * Each app emulator that is healthy but no longer holds the seeded world,
+   * such as one that restarted. Reset puts it right.
+   */
+  stale?: { vendor: string; reason: string }[]
 }
 
 export interface WireBody {

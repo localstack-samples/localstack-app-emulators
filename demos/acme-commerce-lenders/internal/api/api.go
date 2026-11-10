@@ -36,10 +36,13 @@ type Admin interface {
 
 // Status is what the UI needs to know before it lets a presenter start.
 type Status struct {
-	Ready     bool          `json:"ready"` // every app emulator is healthy and the world is seeded
+	Ready     bool          `json:"ready"` // every app emulator is healthy and holds the seeded world
 	Seeded    bool          `json:"seeded"`
 	Emulators []seed.Status `json:"emulators"`
 	Facts     *world.Facts  `json:"facts,omitempty"`
+	// Stale lists each app emulator that is healthy but no longer holds the
+	// world that was seeded, such as one that restarted. A reset fixes it.
+	Stale []world.Stale `json:"stale,omitempty"`
 }
 
 // New returns the API handler, to be mounted at /api/.
