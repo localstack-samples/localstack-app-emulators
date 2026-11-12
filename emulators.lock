@@ -1,0 +1,38 @@
+[[dependencies]]
+name = "stripe"
+ecosystem = "none"
+manifest = "none"
+detected_in = "demos/acme-commerce-lenders/world/seed.go"
+emulated = true
+
+[dependencies.emulator]
+vendor = "stripe"
+api_version = "unknown"
+capabilities_ref = "https://wondertwin.dev/stripe"
+emulator_build = "d151d8831bc6"
+
+[[dependencies]]
+name = "plaid"
+ecosystem = "none"
+manifest = "none"
+detected_in = "demos/acme-commerce-lenders/world/seed.go"
+emulated = true
+
+[dependencies.emulator]
+vendor = "plaid"
+api_version = "unknown"
+capabilities_ref = "https://wondertwin.dev/plaid"
+emulator_build = "ca9fea68d873"
+
+[[dependencies]]
+name = "xero"
+ecosystem = "none"
+manifest = "none"
+detected_in = "demos/acme-commerce-lenders/world/seed.go"
+emulated = true
+
+[dependencies.emulator]
+vendor = "xero"
+api_version = "unknown"
+capabilities_ref = "https://wondertwin.dev/xero"
+emulator_build = "b24aeed25cff"
