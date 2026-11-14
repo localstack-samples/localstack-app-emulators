@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/localstack-samples/localstack-app-emulators/demos/acme-commerce-lenders/internal/fakevendors"
+	"github.com/localstack-samples/localstack-app-emulators/demos/acme-commerce-lenders/internal/ui"
 	"github.com/localstack-samples/localstack-app-emulators/demos/acme-commerce-lenders/world"
 )
 
@@ -222,5 +223,58 @@ func TestServeStopsCleanlyAndFreesThePort(t *testing.T) {
 func TestTheDefaultStateIsNotInACacheFolder(t *testing.T) {
 	if p := defaultStatePath(); strings.Contains(p, "Caches") || strings.Contains(p, "/.cache/") {
 		t.Fatalf("state must not live where the system may clear it: %s", p)
+	}
+}
+
+func TestDoctorPassesWhenEverythingIsUpAndSeeded(t *testing.T) {
+	var resets atomic.Int32
+	env := envFor(fakevendors.New(t, &resets).URL)
+	state := filepath.Join(t.TempDir(), "state.json")
+	getenv := func(k string) string { return env[k] }
+	var o, e bytes.Buffer
+	if code := Run(context.Background(), []string{"seed", "--state", state}, getenv, &o, &e); code != 0 {
+		t.Fatalf("seed: %s", e.String())
+	}
+	o.Reset()
+	code := Run(context.Background(), []string{"doctor", "--state", state, "--addr", "127.0.0.1:0"}, getenv, &o, &e)
+	if strings.Contains(o.String(), "stripe") == false || !strings.Contains(o.String(), "the world is seeded and every app emulator still holds it") {
+		t.Fatalf("code=%d\n%s", code, o.String())
+	}
+	// Only the UI check can fail, and only when this checkout has not run make web.
+	wantFailed := 1
+	if ui.Built() {
+		wantFailed = 0
+	}
+	if strings.Count(o.String(), "FAILED") != wantFailed {
+		t.Fatalf("want %d failed check(s):\n%s", wantFailed, o.String())
+	}
+}
+
+func TestDoctorNamesEachProblemAndItsFix(t *testing.T) {
+	var resets atomic.Int32
+	up := fakevendors.New(t, &resets)
+	down := httptest.NewServer(http.NotFoundHandler())
+	downURL := down.URL
+	down.Close()
+	env := envFor(up.URL)
+	env["XERO_EMULATOR_URL"] = downURL
+
+	busy, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer busy.Close()
+
+	code, out, errOut := run(t, env, "doctor", "--addr", busy.Addr().String())
+	if code != 1 {
+		t.Fatalf("code=%d", code)
+	}
+	for _, want := range []string{"serve --addr", "XERO_EMULATOR_URL", "the world is seeded", "run: reset", "XERO_EMULATOR_VERSION"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("doctor should say %q:\n%s", want, out)
+		}
+	}
+	if !strings.Contains(errOut, "problem(s) found") {
+		t.Errorf("err=%q", errOut)
 	}
 }

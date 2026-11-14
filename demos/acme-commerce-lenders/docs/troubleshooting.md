@@ -2,7 +2,7 @@
 
 Status: Ready to rehearse
 
-Check first: `make kit APP=acme-commerce-lenders ARGS=ready`. It lists each app emulator, who serves it and whether it is healthy, and says what to do about one that is not. Each row below is a failure seen while building or rehearsing the demo.
+Check first: `make kit APP=acme-commerce-lenders ARGS=doctor`. It checks the web UI build, the state file, the port, each app emulator and the seeded world, and says what to do about each failure. `ARGS=ready` checks only the app emulators. Each row below is a failure seen while building or rehearsing the demo.
 
 | Symptom | Cause | Fix |
 |---|---|---|

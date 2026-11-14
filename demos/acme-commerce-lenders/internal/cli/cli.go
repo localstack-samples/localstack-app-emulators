@@ -34,6 +34,7 @@ Commands:
   ready   check that the Stripe, Plaid and Xero app emulators are up
   seed    seed the world into the app emulators
   reset   wipe the app emulators and seed the world again
+  doctor  check this machine and the app emulators, and say how to fix each problem
 
 Each vendor is served by LocalStack unless <VENDOR>_EMULATOR_URL says you run
 its app emulator yourself, for example PLAID_EMULATOR_URL=http://127.0.0.1:5101.
@@ -53,7 +54,7 @@ func Run(ctx context.Context, args []string, getenv func(string) string, stdout,
 	addr := fs.String("addr", defaultAddr, "address the UI listens on (serve only); when not given, the next free port is used if 8080 is taken")
 
 	switch cmd {
-	case "serve", "ready", "seed", "reset":
+	case "serve", "ready", "seed", "reset", "doctor":
 	case "help":
 		fmt.Fprint(stdout, usage)
 		return 0
@@ -78,6 +79,8 @@ func Run(ctx context.Context, args []string, getenv func(string) string, stdout,
 		err = app.seed()
 	case "reset":
 		err = app.reset()
+	case "doctor":
+		err = app.doctor(*addr)
 	}
 	if err != nil {
 		fmt.Fprintln(stderr, "error:", err)

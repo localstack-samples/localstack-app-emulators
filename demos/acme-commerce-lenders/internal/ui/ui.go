@@ -23,6 +23,13 @@ func Handler() http.Handler {
 	return handler(sub)
 }
 
+// Built reports whether the binary carries the built web UI rather than the
+// placeholder page.
+func Built() bool {
+	sub, err := fs.Sub(assets, "assets")
+	return err == nil && exists(sub, "index.html")
+}
+
 // handler serves fsys as a single-page app:
 //   - a file that exists is served as it is;
 //   - a path with no file extension that does not exist, such as /inspector, is
